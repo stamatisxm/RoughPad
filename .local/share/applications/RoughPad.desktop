@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0.0
+Name=RoughPad
+GenericName=RoughPad
+Comment=General Purpose Notes
+Name[el]=RoughPad
+GenericName[el]=RoughPad
+Comment[el]=Πρόχειρες Σημειώσεις
+Exec=RoughPad
+Terminal=false
+X-MultipleArgs=false
+Type=Application
+Icon=RoughPad
+Categories=Utility;Other;
+MimeType=text/plain;
+StartupNotify=true

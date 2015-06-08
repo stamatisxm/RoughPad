@@ -1,0 +1,459 @@
+#!/usr/bin/tclsh
+
+#
+#    RoughPad - { Quick Note Manipulation }
+#    Copyright (C) 2013-2014  Stamatis X. Mavrogeorgis
+#
+#    Author's Email: stamatis@zirconix.net
+#    Author's Website: http://www.istos.info
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+# version 0.2.6 - Cleaned up some debugging commented code
+# version 0.2.5 - Added tooltip toggle capability
+# version 0.2.4 - Altered the commit protocol for data and configuration
+# version 0.2.3 - Added Tab With Temporary Area
+# version 0.2.2 - Tweaked the context menu
+# version 0.2.1 - Added Blank Lines Insert in the context menu
+# version 0.2.0 - Added Clear Failsafe functionality
+# version 0.1.8 - Added RoughPadStore functionality
+# version 0.1.7 - Added DateTime Stamp on Save As option
+# version 0.1.6 - Added File Load / Save As options
+# version 0.1.5 - Added Break Bars Insert in the context menu
+# version 0.1.4 - Added more items to menu
+# version 0.1.3 - Added more items to menu
+# version 0.1.2 - Added more bits and pieces
+# version 0.1.0 - Added bits and pieces
+# version 0.0.1 - Initial Program
+
+package require Tk
+#package require Tclx
+package require Signal
+package require tooltip
+package require autoscroll
+
+proc programAbout {} {
+  global programName programVersion programLicense
+  set sysDateTime [ clock seconds ]
+  set currYear [ clock format $sysDateTime -format %Y ]
+  set sxTab {        }
+  set aboutMessage "$programName v$programVersion\n${sxTab}Copyright (C) 2013-$currYear\n${sxTab}Stamatis X. Mavrogeorgis\n${sxTab}Email: stamatis@zirconix.net\n${sxTab}Web: http://www.istos.info"
+  set aboutDetail "$programLicense\n\nThis program comes with\n${sxTab}${sxTab}ABSOLUTELY NO WARRANTY;\n\nThis is free software, and you are welcome to\nredistribute it under certain conditions; - See:\nGPL-3.0 on <http://www.gnu.org/licenses/>"
+  option add *__tk__messagebox*wrapLength {352}
+  tk_messageBox -title "VoiceOutLoud v$programVersion" -message $aboutMessage -detail $aboutDetail
+}
+
+proc insertCharsAtTop {howMany whatChar whatWidget } {
+  $whatWidget insert 1.0 {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert 1.0 $whatChar
+  }
+  $whatWidget insert 1.0 {}
+}
+
+proc insertCharsAtCursor {howMany whatChar whatWidget } {
+  $whatWidget insert insert {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert insert $whatChar
+  }
+  $whatWidget insert insert {}
+}
+
+proc insertCharsHere {howMany whatChar whatWidget } {
+  $whatWidget insert current {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert current $whatChar
+  }
+  $whatWidget insert current {}
+}
+
+proc insertCharsAtBottom {howMany whatChar whatWidget } {
+  $whatWidget insert end {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert end $whatChar
+  }
+  $whatWidget insert end {}
+}
+
+proc wrapToggle { whatWidget whatState } {
+  upvar #0 $whatState myState
+  if { $myState == {on} } {
+    $whatWidget configure -wrap word
+  } else {
+    $whatWidget configure -wrap none
+  }
+}
+
+proc inverseToggle { whatWidget whatState } {
+  upvar #0 $whatState myState
+  if { $myState == {on} } {
+    $whatWidget configure -background #000000 -foreground #FFFFFF
+  } else {
+    $whatWidget configure -background #FFFFFF -foreground #000000
+  }
+}
+
+proc popupMenu {txtAreaMenu xComp yComp} {
+  set xCoord [ expr [ winfo rootx . ]+ $xComp ]
+  set yCoord [ expr [ winfo rooty . ]+ $yComp ]
+  tk_popup $txtAreaMenu $xCoord $yCoord
+}
+
+proc buttonClear {} {
+  set answer [ tk_dialog .cRPDialog {Data Destruction} {Clear RoughPad contents?} warning 1 {Yes} {No} ]
+  if { $answer == 0 } { .textData delete 1.0 end }
+}
+
+proc buttonExit {} {
+  global LOCKFILE
+  file delete $LOCKFILE
+  exit
+}
+
+proc buttonCommitConfig {} {
+  global inverseState wrapState wrapState2 toolTipState programResourceFile
+  set fileHandle [ open "$programResourceFile" "w" ]
+  puts $fileHandle "inverseState $inverseState"
+  puts $fileHandle "wrapState $wrapState"
+  puts $fileHandle "wrapState2 $wrapState2"
+  puts $fileHandle "toolTipState $toolTipState"
+  close $fileHandle
+}
+
+proc buttonCommitData {} {
+  global RoughPadFile
+  set fileHandle [ open "$RoughPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData get 1.0 end] \n ]
+  close $fileHandle
+}
+
+proc loadFile {fileToLoad whatWidget} {
+  global fileData
+  if { $fileToLoad != "" } {
+    set fileHandle [ open "$fileToLoad" "r" ]
+    set fileData [ string trimright [ read $fileHandle ] \n ]
+    close $fileHandle
+    $whatWidget delete 1.0 end
+    $whatWidget insert end $fileData
+  }
+}
+
+proc saveAsFile {fileToSaveAs whatWidget} {
+  if { $fileToSaveAs != "" } {
+    set fileHandle [ open "$fileToSaveAs" "w" ]
+    puts $fileHandle [ string trimright [ $whatWidget get 1.0 end] \n ]
+    close $fileHandle
+  }
+}
+
+proc checkIfIAmRunning {} {
+  global argv0 TMPDIR LOCKFILE
+  set amIRunning [ exec pgrep -lfc "$argv0" ]
+  set amIRunning [ exec pgrep -lfc "$argv0" ]
+  set amILocked [ file exist $LOCKFILE ]
+  if {($amIRunning > 1) && ($amILocked)} {
+      exit 222
+  } elseif {($amIRunning > 1)} {
+    set lockFile [ open "$LOCKFILE" "w" ]
+    set myOwnPID [pid]
+    puts $lockFile [ exec pgrep -f "$argv0" | grep -v "$myOwnPID" ]
+    close $lockFile
+    exit 222
+  } elseif {($amILocked)} {
+    file delete $LOCKFILE
+    set lockFile [ open "$LOCKFILE" "w" ]
+    puts $lockFile [pid]
+    close $lockFile
+  } else {
+    set lockFile [ open "$LOCKFILE" "w" ]
+    puts $lockFile [pid]
+    close $lockFile
+  }
+}
+
+proc dTStamp {} {
+  set currentTime [clock seconds]
+  return [clock format $currentTime -format %Y%m%d%H%M%S]
+}
+
+set TMPDIR "/tmp"
+set LOCKFILE "$TMPDIR/RPRunning.${tcl_platform(user)}"
+
+checkIfIAmRunning
+
+set tmpMessage [ catch { exec grep {^# version} $argv0 | cut -f3 -d\  | sort -r | head -1 } programVersion ]
+set programLicense {GNU General Public License, version 3 (GPL-3.0)}
+set programName {RoughPad}
+
+set inverseState {off}
+set wrapState {on}
+
+set wrapState2 {on}
+
+set toolTipState {on}
+
+set programResourceFile $env(HOME)/.RoughPadrc
+set roughPadStore $env(HOME)/.RoughPadStore
+
+if { [ file isfile $roughPadStore ] } {
+  file rename $roughPadStore $roughPadStore.[dTStamp]
+  file mkdir $roughPadStore
+}
+
+if { ! [ file isdirectory $roughPadStore ] } {
+  file mkdir $roughPadStore
+}
+
+set RoughPadFile $roughPadStore/.RoughPad.rpad
+
+set isResourcePresent [ file exists $programResourceFile ]
+set fileData {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$programResourceFile" "r" ]
+  set fileData [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+
+  set data [split $fileData "\n"]
+  set dataLineCounter 0
+  foreach line $data {
+    set line [ regexp -all -inline {\S+} $line ]
+    set line [ split $line { } ]
+    if { $dataLineCounter == 0 } {
+      global inverseState
+      set inverseState [ lassign $line inverseState ]
+    } elseif { $dataLineCounter == 1 } {
+      global wrapState
+      set wrapState [ lassign $line wrapState ]
+    } elseif { $dataLineCounter == 2 } {
+      global wrapState2
+      set wrapState2 [ lassign $line wrapState2 ]
+    } elseif { $dataLineCounter == 3 } {
+      global toolTipState
+      set toolTipState [ lassign $line toolTipState ]
+    }
+    incr dataLineCounter
+  }
+}
+
+set isResourcePresent [ file exists $RoughPadFile ]
+set fileData {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$RoughPadFile" "r" ]
+  set fileData [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+ttk::notebook .tabBook
+
+.tabBook add [ frame .frmApp -relief sunken -border 1 -padx 2 -pady 2 ] -text "RoughPad"
+.tabBook add [ frame .frmApp2 -relief sunken -border 1 -padx 2 -pady 2 ] -text "TempPad"
+ttk::notebook::enableTraversal .tabBook
+
+frame .frmAppB -relief sunken -border 1 -padx 2 -pady 2
+
+grid rowconfigure . 0 -weight 1
+grid columnconfigure . 0 -weight 1
+
+grid rowconfigure .frmApp 0 -weight 1
+grid rowconfigure .frmApp 1 -weight 0
+
+grid rowconfigure .frmAppB 0 -weight 0
+
+grid columnconfigure .frmApp 0 -weight 1
+grid columnconfigure .frmApp 1 -weight 0
+
+grid columnconfigure .frmAppB 0 -weight 1
+grid columnconfigure .frmAppB 1 -weight 1
+grid columnconfigure .frmAppB 2 -weight 1
+grid columnconfigure .frmAppB 3 -weight 1
+
+grid rowconfigure .frmApp2 0 -weight 1
+grid rowconfigure .frmApp2 1 -weight 0
+
+grid columnconfigure .frmApp2 0 -weight 1
+grid columnconfigure .frmApp2 1 -weight 0
+
+text .textData -wrap none -xscrollcommand { .hScrollBar set } -yscrollcommand { .vScrollBar set } -width 80 -height 24
+scrollbar .vScrollBar -orient vertical -command { .textData yview }
+scrollbar .hScrollBar -orient horizontal -command { .textData xview }
+
+text .textData2 -fg #FF0000 -bg #FFFFF0 -wrap none -xscrollcommand { .hScrollBar2 set } -yscrollcommand { .vScrollBar2 set } -width 80 -height 24
+scrollbar .vScrollBar2 -orient vertical -command { .textData2 yview }
+scrollbar .hScrollBar2 -orient horizontal -command { .textData2 xview }
+
+button .butClear -text "Clear" -command { buttonClear } -width 8
+button .butCommit -text "Commit" -command { buttonCommitData } -width 8
+button .butMinimize -text "Iconify" -command { buttonCommitData; wm withdraw . ; wm iconify . } -width 8
+button .butExit -text "Exit" -command { buttonCommitData; buttonExit }  -width 8
+
+.textData insert end $fileData
+
+bind .textData <3> {popupMenu .appMenu %x %y}
+bind .textData2 <3> {popupMenu .appMenu2 %x %y}
+
+set fileTypes {
+	{{RoughPad Files} {.rpad}}
+	{{Text Files} {.txt}}
+	{{All Files} {*}}
+}
+
+menu .appMenu -tearoff 0
+.appMenu add cascade -label "File" -underline 0 -menu [menu .appMenu.fileMenu -tearoff 0]
+.appMenu.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData }
+.appMenu.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData }
+.appMenu add separator
+.appMenu add cascade -label "Edit" -underline 0 -menu [menu .appMenu.editMenu -tearoff 0]
+.appMenu.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu add separator
+.appMenu add cascade -label "Insert" -underline 0 -menu [menu .appMenu.insertMenu -tearoff 0]
+.appMenu.insertMenu add cascade -label "Time Stamp" -underline 0 -menu [menu .appMenu.insertMenu.dTStamp -tearoff 0]
+.appMenu.insertMenu.dTStamp add command -label "At Top" -underline 3 -command { .textData insert 1.0 [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu.insertMenu.dTStamp add command -label "Here" -underline 1 -command { .textData insert current [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu.insertMenu.dTStamp add command -label "At Cursor" -underline 3 -command { .textData insert insert [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu.insertMenu.dTStamp add command -label "At Bottom" -underline 3 -command { .textData insert end \n[clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu.insertMenu add separator
+.appMenu.insertMenu add cascade -label "Bar Marks" -underline 0 -menu [menu .appMenu.insertMenu.bMMenu -tearoff 0]
+.appMenu.insertMenu.bMMenu add cascade -label "Single Bar" -underline 0 -menu [menu .appMenu.insertMenu.bMMenu.sBar -tearoff 0]
+.appMenu.insertMenu.bMMenu.sBar add command -label "Short Bar At Top" -underline 0 -command { insertCharsAtTop 32 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Medium Bar At Top" -underline 0 -command { insertCharsAtTop 48 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Long Bar At Top" -underline 0 -command { insertCharsAtTop 64 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add separator
+.appMenu.insertMenu.bMMenu.sBar add command -label "Short Bar Here" -underline 1 -command { insertCharsHere 32 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Medium Bar Here" -underline 1 -command { insertCharsHere 48 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Long Bar Here" -underline 1 -command { insertCharsHere 64 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add separator
+.appMenu.insertMenu.bMMenu.sBar add command -label "Short Bar at Cursor" -underline 3 -command { insertCharsAtCursor 32 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Medium Bar at Cursor" -underline 2 -command { insertCharsAtCursor 48 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Long Bar at Cursor" -underline 2 -command { insertCharsAtCursor 64 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add separator
+.appMenu.insertMenu.bMMenu.sBar add command -label "Short Bar at Bottom" -underline 4 -command { insertCharsAtBottom 32 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Medium Bar at Bottom" -underline 3 -command { insertCharsAtBottom 48 {-} .textData }
+.appMenu.insertMenu.bMMenu.sBar add command -label "Long Bar at Bottom" -underline 3 -command { insertCharsAtBottom 64 {-} .textData }
+.appMenu.insertMenu.bMMenu add cascade -label "Double Bar" -underline 0 -menu [menu .appMenu.insertMenu.bMMenu.dBar -tearoff 0]
+.appMenu.insertMenu.bMMenu.dBar add command -label "Short Bar At Top" -underline 0 -command { insertCharsAtTop 32 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Medium Bar At Top" -underline 0 -command { insertCharsAtTop 48 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Long Bar At Top" -underline 0 -command { insertCharsAtTop 64 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add separator
+.appMenu.insertMenu.bMMenu.dBar add command -label "Short Bar Here" -underline 1 -command { insertCharsHere 32 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Medium Bar Here" -underline 1 -command { insertCharsHere 48 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Long Bar Here" -underline 1 -command { insertCharsHere 64 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add separator
+.appMenu.insertMenu.bMMenu.dBar add command -label "Short Bar at Cursor" -underline 3 -command { insertCharsAtCursor 32 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Medium Bar at Cursor" -underline 2 -command { insertCharsAtCursor 48 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Long Bar at Cursor" -underline 2 -command { insertCharsAtCursor 64 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add separator
+.appMenu.insertMenu.bMMenu.dBar add command -label "Short Bar at Bottom" -underline 4 -command { insertCharsAtBottom 32 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Medium Bar at Bottom" -underline 3 -command { insertCharsAtBottom 48 {=} .textData }
+.appMenu.insertMenu.bMMenu.dBar add command -label "Long Bar at Bottom" -underline 3 -command { insertCharsAtBottom 64 {=} .textData }
+.appMenu.insertMenu add separator
+.appMenu.insertMenu add cascade -label "Blank Lines" -underline 6 -menu [menu .appMenu.insertMenu.bMenu -tearoff 0]
+.appMenu.insertMenu.bMenu add cascade -label "8 Lines" -underline 0 -menu [menu .appMenu.insertMenu.bMenu.8Lines -tearoff 0]
+.appMenu.insertMenu.bMenu.8Lines add command -label "8 Lines at Top" -underline 11 -command { insertCharsAtTop 6 {} .textData }
+.appMenu.insertMenu.bMenu.8Lines add command -label "8 Lines Here" -underline 8 -command { insertCharsHere 6 {} .textData }
+.appMenu.insertMenu.bMenu.8Lines add command -label "8 Lines at Cursor" -underline 11 -command { insertCharsAtCursor 6 {} .textData }
+.appMenu.insertMenu.bMenu.8Lines add command -label "8 Lines at Bottom" -underline 11 -command { insertCharsAtBottom 6 {} .textData }
+.appMenu.insertMenu.bMenu add cascade -label "16 Lines" -underline 0 -menu [menu .appMenu.insertMenu.bMenu.16Lines -tearoff 0]
+.appMenu.insertMenu.bMenu.16Lines add command -label "16 Lines at Top" -underline 12 -command { insertCharsAtTop 14 {} .textData }
+.appMenu.insertMenu.bMenu.16Lines add command -label "16 Lines Here" -underline 9 -command { insertCharsHere 14 {} .textData }
+.appMenu.insertMenu.bMenu.16Lines add command -label "16 Lines at Cursor" -underline 12 -command { insertCharsAtCursor 14 {} .textData }
+.appMenu.insertMenu.bMenu.16Lines add command -label "16 Lines at Bottom" -underline 12 -command { insertCharsAtBottom 14 {} .textData }
+.appMenu.insertMenu.bMenu add cascade -label "24 Lines" -underline 0 -menu [menu .appMenu.insertMenu.bMenu.24Lines -tearoff 0]
+.appMenu.insertMenu.bMenu.24Lines add command -label "24 Lines at Top" -underline 12 -command { insertCharsAtTop 22 {} .textData }
+.appMenu.insertMenu.bMenu.24Lines add command -label "24 Lines Here" -underline 9 -command { insertCharsHere 22 {} .textData }
+.appMenu.insertMenu.bMenu.24Lines add command -label "24 Lines at Cursor" -underline 12 -command { insertCharsAtCursor 22 {} .textData }
+.appMenu.insertMenu.bMenu.24Lines add command -label "24 Lines at Bottom" -underline 12 -command { insertCharsAtBottom 22 {} .textData }
+.appMenu add separator
+.appMenu add cascade -label "Preferences" -underline 0 -menu [menu .appMenu.prefMenu -tearoff 0]
+.appMenu.prefMenu add checkbutton -label "Inverse Colours" -underline 0 -onvalue {on} -offvalue {off} -variable inverseState -command { inverseToggle .textData inverseState ; buttonCommitConfig }
+.appMenu.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState -command { wrapToggle .textData wrapState ; buttonCommitConfig }
+.appMenu.prefMenu add checkbutton -label "Show Tooltips" -underline 0 -onvalue {on} -offvalue {off} -variable toolTipState -command { ::tooltip::tooltip $toolTipState ; buttonCommitConfig }
+.appMenu add separator
+.appMenu add cascade -label "Help" -underline 0 -menu [menu .appMenu.helpMenu -tearoff 0]
+.appMenu.helpMenu add command -label "About" -underline 0 -command { programAbout }
+
+menu .appMenu2 -tearoff 0
+.appMenu2 add cascade -label "File" -underline 0 -menu [menu .appMenu2.fileMenu -tearoff 0]
+.appMenu2.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData2 }
+.appMenu2.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData2 }
+.appMenu2 add separator
+.appMenu2 add cascade -label "Edit" -underline 0 -menu [menu .appMenu2.editMenu -tearoff 0]
+.appMenu2.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu2.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu2.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu2 add separator
+.appMenu2 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu2.prefMenu -tearoff 0]
+.appMenu2.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState2 -command { wrapToggle .textData2 wrapState2 ; buttonCommitConfig }
+
+grid .tabBook -in . -row 0 -column 0 -sticky news
+
+grid .textData -in .frmApp -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar -in .frmApp -row 0 -column 1 -sticky news
+grid .hScrollBar -in .frmApp -row 1 -column 0 -sticky news
+
+grid .textData2 -in .frmApp2 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar2 -in .frmApp2 -row 0 -column 1 -sticky news
+grid .hScrollBar2 -in .frmApp2 -row 1 -column 0 -sticky news
+
+grid .frmAppB -in .frmApp -row 2 -column 0 -columnspan 4 -sticky news
+grid .butClear -in .frmAppB -row 0 -column 0 -sticky news -padx 0 -pady 0 -ipadx 0
+grid .butCommit -in .frmAppB -row 0 -column 1 -sticky news -padx 0 -pady 0 -ipadx 0
+grid .butMinimize -in .frmAppB -row 0 -column 2 -sticky news -padx 0 -pady 0 -ipadx 0
+grid .butExit -in .frmAppB -row 0 -column 3 -sticky news -padx 0 -pady 0 -ipadx 0
+
+::tooltip::tooltip delay 512
+::tooltip::tooltip fade true
+::tooltip::tooltip $toolTipState
+tooltip::tooltip .textData "Use this area to manipulate miscelaneous text.\n\n\tW A R N I N G :\n\n* Never use this area to keep important notes indefinitely,\n  as they could and will eventually be overwritten.\n\n* To save your notes to a regular text file of your choice,\n  use the \"Save As\" option from the \"File\" context menu.\n\n* Before you load a text file from the \"File\" context menu,\n  ensure you have saved your current notes to a text file\n  using the \"Save As\" option from the \"File\" context menu\n  as your notes will be overwritten by the file's contents."
+
+tooltip::tooltip .textData2 "\W A R N I N G :\n\n* Nothing in this area is saved automatically. *\n\nUse the File popup menu to load / save from here."
+
+tooltip::tooltip .butClear "Clear all text in the RoughPad."
+tooltip::tooltip .butCommit "Commit the RoughPad text now! (Text is auto-committed on exit, too)"
+tooltip::tooltip .butMinimize "Commit the RoughPad text and minimize the application."
+tooltip::tooltip .butExit "Commit the RoughPad text and exit."
+
+wm protocol . WM_DELETE_WINDOW { buttonCommitData; buttonExit }
+wm title .  "RoughPad v$programVersion"
+wm minsize . 320 240
+wm iconbitmap . @$env(HOME)/.icons/RoughPad.xbm
+wm iconmask . @$env(HOME)/.icons/RoughPad-mask.xbm
+
+inverseToggle .textData inverseState
+wrapToggle .textData wrapState
+wrapToggle .textData2 wrapState2
+
+buttonCommitConfig
+
+if { [ lindex $argv 0 ]  == "-m" } { wm withdraw . ; wm iconify . }
+
+if { ! [ catch { package present Tclx } v ] } {
+  signal trap [ list SIGQUIT SIGABRT SIGTERM SIGINT ] { buttonCommitData; buttonExit }
+  signal trap [ list SIGHUP SIGUSR1 SIGUSR2 ] buttonCommitData
+}
+
+if { ! [ catch { package present Signal } v ] } {
+  signal add SIGQUIT { buttonCommitData; buttonExit }
+  signal add SIGABRT { buttonCommitData; buttonExit }
+  signal add SIGTERM { buttonCommitData; buttonExit }
+  signal add SIGINT { buttonCommitData; buttonExit }
+  signal add SIGHUP buttonCommitData
+  signal add SIGUSR1 buttonCommitData
+  signal add SIGUSR2 buttonCommitData
+}
+
