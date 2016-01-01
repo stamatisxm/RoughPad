@@ -431,8 +431,8 @@ tooltip::tooltip .butExit "Commit the RoughPad text and exit."
 wm protocol . WM_DELETE_WINDOW { buttonCommitData; buttonExit }
 wm title .  "RoughPad v$programVersion"
 wm minsize . 320 240
-wm iconbitmap . @$env(HOME)/.icons/RoughPad.xbm
-wm iconmask . @$env(HOME)/.icons/RoughPad-mask.xbm
+wm iconbitmap . @$env(HOME)/.local/share/icons/RoughPad.xbm
+wm iconmask . @$env(HOME)/.local/share/icons/RoughPad-mask.xbm
 
 inverseToggle .textData inverseState
 wrapToggle .textData wrapState
