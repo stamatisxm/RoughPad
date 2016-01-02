@@ -24,7 +24,7 @@ The "RoughPad" is saved and restored automatically on closing and loading the pr
 The "TempPad" tab is only for temporary work, is not saved on program closing, though you can still save its contents in a file similarly to the "RoughPad" via the context menu.
 
 ### { Program Setup }
-This program is going to be installed by default in your **$HOME/bin** directory. If you have not set your **$HOME/bin** in the **$PATH**, see this [Knowledge Base Snippet](http://istos.info/knowledgebase/knowledgebasesnippet.php?id=15 "Setup your $HOME/bin in the $PATH") for details.
+This program is going to be installed by default in your **$HOME/bin** directory. If you have not set your **$HOME/bin** in the **$PATH**, see [this](http://istos.xyz/linux/include-homebin-in-any-desktop-environment/ "Include $HOME/bin in any Desktop Environment") or [this snippet](http://istos.xyz/linux/include-homebin-in-the-path-for-bash-shell "Setup your $HOME/bin in the $PATH") for details.
 
 To run this program, you need to have the following packages installed in your system (Check with your package manager):
 
