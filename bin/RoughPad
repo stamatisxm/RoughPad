@@ -21,6 +21,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# version 0.2.7 - Added <Alt-A> select all capability code
 # version 0.2.6 - Cleaned up some debugging commented code
 # version 0.2.5 - Added tooltip toggle capability
 # version 0.2.4 - Altered the commit protocol for data and configuration
@@ -287,11 +288,11 @@ grid rowconfigure .frmApp2 1 -weight 0
 grid columnconfigure .frmApp2 0 -weight 1
 grid columnconfigure .frmApp2 1 -weight 0
 
-text .textData -wrap none -xscrollcommand { .hScrollBar set } -yscrollcommand { .vScrollBar set } -width 80 -height 24
+text .textData -wrap none -xscrollcommand { .hScrollBar set } -yscrollcommand { .vScrollBar set } -width 80 -height 24 -exportselection true
 scrollbar .vScrollBar -orient vertical -command { .textData yview }
 scrollbar .hScrollBar -orient horizontal -command { .textData xview }
 
-text .textData2 -fg #FF0000 -bg #FFFFF0 -wrap none -xscrollcommand { .hScrollBar2 set } -yscrollcommand { .vScrollBar2 set } -width 80 -height 24
+text .textData2 -fg #FF0000 -bg #FFFFF0 -wrap none -xscrollcommand { .hScrollBar2 set } -yscrollcommand { .vScrollBar2 set } -width 80 -height 24 -exportselection true
 scrollbar .vScrollBar2 -orient vertical -command { .textData2 yview }
 scrollbar .hScrollBar2 -orient horizontal -command { .textData2 xview }
 
@@ -304,6 +305,8 @@ button .butExit -text "Exit" -command { buttonCommitData; buttonExit }  -width 8
 
 bind .textData <3> {popupMenu .appMenu %x %y}
 bind .textData2 <3> {popupMenu .appMenu2 %x %y}
+bind .textData <Alt-a> { .textData tag add sel 1.0 end }
+bind .textData2 <Alt-a> { .textData2 tag add sel 1.0 end }
 
 set fileTypes {
 	{{RoughPad Files} {.rpad}}
