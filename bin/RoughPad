@@ -20,6 +20,10 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# version 0.4.0 - Added Autosave functionality for all extra areas
+# version 0.3.0 - Added WritePad Area
+# version 0.2.9 - Added AuxPad Area
+# version 0.2.8 - Added ScrapPad Area
 # version 0.2.7 - Added <Alt-A> select all capability code
 # version 0.2.6 - Cleaned up some debugging commented code
 # version 0.2.5 - Added tooltip toggle capability
@@ -52,7 +56,7 @@ proc programAbout {} {
   set aboutMessage "$programName v$programVersion\n${sxTab}Copyright (C) 2013-$currYear\n${sxTab}Stamatis X. Mavrogeorgis\n${sxTab}Email: stamatis@zirconix.net\n${sxTab}Web: http://www.istos.xyz"
   set aboutDetail "$programLicense\n\nThis program comes with\n${sxTab}${sxTab}ABSOLUTELY NO WARRANTY;\n\nThis is free software, and you are welcome to\nredistribute it under certain conditions; - See:\nGPL-3.0 on <http://www.gnu.org/licenses/>"
   option add *__tk__messagebox*wrapLength {352}
-  tk_messageBox -title "VoiceOutLoud v$programVersion" -message $aboutMessage -detail $aboutDetail
+  tk_messageBox -title "RoughPad v$programVersion" -message $aboutMessage -detail $aboutDetail
 }
 
 proc insertCharsAtTop {howMany whatChar whatWidget } {
@@ -99,9 +103,9 @@ proc wrapToggle { whatWidget whatState } {
 proc inverseToggle { whatWidget whatState } {
   upvar #0 $whatState myState
   if { $myState == {on} } {
-    $whatWidget configure -background #000000 -foreground #FFFFFF
+    $whatWidget configure -background #333333 -foreground #FFFFFF
   } else {
-    $whatWidget configure -background #FFFFFF -foreground #000000
+    $whatWidget configure -background #FFFFFF -foreground #333333
   }
 }
 
@@ -123,19 +127,38 @@ proc buttonExit {} {
 }
 
 proc buttonCommitConfig {} {
-  global inverseState wrapState wrapState2 toolTipState programResourceFile
+  global inverseState wrapState wrapState2 wrapState3 wrapState4 wrapState5 toolTipState programResourceFile
   set fileHandle [ open "$programResourceFile" "w" ]
   puts $fileHandle "inverseState $inverseState"
   puts $fileHandle "wrapState $wrapState"
   puts $fileHandle "wrapState2 $wrapState2"
+  puts $fileHandle "wrapState3 $wrapState3"
+  puts $fileHandle "wrapState4 $wrapState4"
+  puts $fileHandle "wrapState5 $wrapState5"
   puts $fileHandle "toolTipState $toolTipState"
   close $fileHandle
 }
 
 proc buttonCommitData {} {
   global RoughPadFile
+  global TempPadFile
+  global ScrapPadFile
+  global AuxPadFile
+  global WritePadFile
   set fileHandle [ open "$RoughPadFile" "w" ]
   puts $fileHandle [ string trimright [ .textData get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TempPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData2 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ScrapPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData3 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$AuxPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData4 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData5 get 1.0 end] \n ]
   close $fileHandle
 }
 
@@ -201,6 +224,9 @@ set inverseState {off}
 set wrapState {on}
 
 set wrapState2 {on}
+set wrapState3 {on}
+set wrapState4 {on}
+set wrapState5 {on}
 
 set toolTipState {on}
 
@@ -217,6 +243,10 @@ if { ! [ file isdirectory $roughPadStore ] } {
 }
 
 set RoughPadFile $roughPadStore/.RoughPad.rpad
+set TempPadFile $roughPadStore/.TempPad.rpad
+set ScrapPadFile $roughPadStore/.ScrapPad.rpad
+set AuxPadFile $roughPadStore/.AuxPad.rpad
+set WritePadFile $roughPadStore/.WritePad.rpad
 
 set isResourcePresent [ file exists $programResourceFile ]
 set fileData {}
@@ -241,12 +271,23 @@ if { $isResourcePresent == 1 } {
       global wrapState2
       set wrapState2 [ lassign $line wrapState2 ]
     } elseif { $dataLineCounter == 3 } {
+      global wrapState3
+      set wrapState3 [ lassign $line wrapState3 ]
+    } elseif { $dataLineCounter == 4 } {
+      global wrapState4
+      set wrapState4 [ lassign $line wrapState4 ]
+    } elseif { $dataLineCounter == 5 } {
+      global wrapState5
+      set wrapState5 [ lassign $line wrapState5 ]
+    } elseif { $dataLineCounter == 6 } {
       global toolTipState
       set toolTipState [ lassign $line toolTipState ]
     }
     incr dataLineCounter
   }
 }
+
+############### SXM #### File Loading #############
 
 set isResourcePresent [ file exists $RoughPadFile ]
 set fileData {}
@@ -257,10 +298,51 @@ if { $isResourcePresent == 1 } {
   close $fileHandle
 }
 
+set isResourcePresent [ file exists $TempPadFile ]
+set fileData2 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TempPadFile" "r" ]
+  set fileData2 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ScrapPadFile ]
+set fileData3 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ScrapPadFile" "r" ]
+  set fileData3 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $AuxPadFile ]
+set fileData4 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$AuxPadFile" "r" ]
+  set fileData4 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile ]
+set fileData5 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile" "r" ]
+  set fileData5 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+######### End # SXM #### File Loading #############
+
 ttk::notebook .tabBook
 
 .tabBook add [ frame .frmApp -relief sunken -border 1 -padx 2 -pady 2 ] -text "RoughPad"
 .tabBook add [ frame .frmApp2 -relief sunken -border 1 -padx 2 -pady 2 ] -text "TempPad"
+.tabBook add [ frame .frmApp3 -relief sunken -border 1 -padx 2 -pady 2 ] -text "ScrapPad"
+.tabBook add [ frame .frmApp4 -relief sunken -border 1 -padx 2 -pady 2 ] -text "AuxPad"
+.tabBook add [ frame .frmApp5 -relief sunken -border 1 -padx 2 -pady 2 ] -text "WritePad"
 ttk::notebook::enableTraversal .tabBook
 
 frame .frmAppB -relief sunken -border 1 -padx 2 -pady 2
@@ -287,25 +369,65 @@ grid rowconfigure .frmApp2 1 -weight 0
 grid columnconfigure .frmApp2 0 -weight 1
 grid columnconfigure .frmApp2 1 -weight 0
 
-text .textData -wrap none -xscrollcommand { .hScrollBar set } -yscrollcommand { .vScrollBar set } -width 80 -height 24 -exportselection true
-scrollbar .vScrollBar -orient vertical -command { .textData yview }
-scrollbar .hScrollBar -orient horizontal -command { .textData xview }
+grid rowconfigure .frmApp3 0 -weight 1
+grid rowconfigure .frmApp3 1 -weight 0
+
+grid columnconfigure .frmApp3 0 -weight 1
+grid columnconfigure .frmApp3 1 -weight 0
+
+grid rowconfigure .frmApp4 0 -weight 1
+grid rowconfigure .frmApp4 1 -weight 0
+
+grid columnconfigure .frmApp4 0 -weight 1
+grid columnconfigure .frmApp4 1 -weight 0
+
+grid rowconfigure .frmApp5 0 -weight 1
+grid rowconfigure .frmApp5 1 -weight 0
+
+grid columnconfigure .frmApp5 0 -weight 1
+grid columnconfigure .frmApp5 1 -weight 0
+
+text .textData -fg #FFFFFF -bg #333333 -wrap none -xscrollcommand { .hScrollBar set } -yscrollcommand { .vScrollBar set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar -orient vertical -command { .textData yview }
+ttk::scrollbar .hScrollBar -orient horizontal -command { .textData xview }
 
 text .textData2 -fg #FF0000 -bg #FFFFF0 -wrap none -xscrollcommand { .hScrollBar2 set } -yscrollcommand { .vScrollBar2 set } -width 80 -height 24 -exportselection true
-scrollbar .vScrollBar2 -orient vertical -command { .textData2 yview }
-scrollbar .hScrollBar2 -orient horizontal -command { .textData2 xview }
+ttk::scrollbar .vScrollBar2 -orient vertical -command { .textData2 yview }
+ttk::scrollbar .hScrollBar2 -orient horizontal -command { .textData2 xview }
 
-button .butClear -text "Clear" -command { buttonClear } -width 8
-button .butCommit -text "Commit" -command { buttonCommitData } -width 8
-button .butMinimize -text "Iconify" -command { buttonCommitData; wm withdraw . ; wm iconify . } -width 8
-button .butExit -text "Exit" -command { buttonCommitData; buttonExit }  -width 8
+text .textData3 -fg #0000FF -bg #E6E6E6 -wrap none -xscrollcommand { .hScrollBar3 set } -yscrollcommand { .vScrollBar3 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar3 -orient vertical -command { .textData3 yview }
+ttk::scrollbar .hScrollBar3 -orient horizontal -command { .textData3 xview }
+
+text .textData4 -fg #003F00 -bg #FFF0FF -wrap none -xscrollcommand { .hScrollBar4 set } -yscrollcommand { .vScrollBar4 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar4 -orient vertical -command { .textData4 yview }
+ttk::scrollbar .hScrollBar4 -orient horizontal -command { .textData4 xview }
+
+text .textData5 -fg #0000FF -bg #F0FFFF -wrap none -xscrollcommand { .hScrollBar5 set } -yscrollcommand { .vScrollBar5 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar5 -orient vertical -command { .textData5 yview }
+ttk::scrollbar .hScrollBar5 -orient horizontal -command { .textData5 xview }
+
+ttk::button .butClear -text "Clear" -command { buttonClear } -width 8
+ttk::button .butCommit -text "Commit" -command { buttonCommitData } -width 8
+ttk::button .butMinimize -text "Iconify" -command { buttonCommitData; wm withdraw . ; wm iconify . } -width 8
+ttk::button .butExit -text "Exit" -command { buttonCommitData; buttonExit }  -width 8
 
 .textData insert end $fileData
+.textData2 insert end $fileData2
+.textData3 insert end $fileData3
+.textData4 insert end $fileData4
+.textData5 insert end $fileData5
 
 bind .textData <3> {popupMenu .appMenu %x %y}
 bind .textData2 <3> {popupMenu .appMenu2 %x %y}
+bind .textData3 <3> {popupMenu .appMenu3 %x %y}
+bind .textData4 <3> {popupMenu .appMenu4 %x %y}
+bind .textData5 <3> {popupMenu .appMenu5 %x %y}
 bind .textData <Alt-a> { .textData tag add sel 1.0 end }
 bind .textData2 <Alt-a> { .textData2 tag add sel 1.0 end }
+bind .textData3 <Alt-a> { .textData3 tag add sel 1.0 end }
+bind .textData4 <Alt-a> { .textData4 tag add sel 1.0 end }
+bind .textData5 <Alt-a> { .textData5 tag add sel 1.0 end }
 
 set fileTypes {
 	{{RoughPad Files} {.rpad}}
@@ -402,6 +524,45 @@ menu .appMenu2 -tearoff 0
 .appMenu2 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu2.prefMenu -tearoff 0]
 .appMenu2.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState2 -command { wrapToggle .textData2 wrapState2 ; buttonCommitConfig }
 
+menu .appMenu3 -tearoff 0
+.appMenu3 add cascade -label "File" -underline 0 -menu [menu .appMenu3.fileMenu -tearoff 0]
+.appMenu3.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData3 }
+.appMenu3.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData3 }
+.appMenu3 add separator
+.appMenu3 add cascade -label "Edit" -underline 0 -menu [menu .appMenu3.editMenu -tearoff 0]
+.appMenu3.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu3.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu3.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu3 add separator
+.appMenu3 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu3.prefMenu -tearoff 0]
+.appMenu3.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState3 -command { wrapToggle .textData3 wrapState3 ; buttonCommitConfig }
+
+menu .appMenu4 -tearoff 0
+.appMenu4 add cascade -label "File" -underline 0 -menu [menu .appMenu4.fileMenu -tearoff 0]
+.appMenu4.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData4 }
+.appMenu4.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData4 }
+.appMenu4 add separator
+.appMenu4 add cascade -label "Edit" -underline 0 -menu [menu .appMenu4.editMenu -tearoff 0]
+.appMenu4.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu4.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu4.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu4 add separator
+.appMenu4 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu4.prefMenu -tearoff 0]
+.appMenu4.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState4 -command { wrapToggle .textData4 wrapState4 ; buttonCommitConfig }
+
+menu .appMenu5 -tearoff 0
+.appMenu5 add cascade -label "File" -underline 0 -menu [menu .appMenu5.fileMenu -tearoff 0]
+.appMenu5.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData5 }
+.appMenu5.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData5 }
+.appMenu5 add separator
+.appMenu5 add cascade -label "Edit" -underline 0 -menu [menu .appMenu5.editMenu -tearoff 0]
+.appMenu5.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu5.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu5.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu5 add separator
+.appMenu5 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu5.prefMenu -tearoff 0]
+.appMenu5.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState5 -command { wrapToggle .textData5 wrapState5 ; buttonCommitConfig }
+
 grid .tabBook -in . -row 0 -column 0 -sticky news
 
 grid .textData -in .frmApp -row 0 -column 0 -columnspan 1 -sticky news
@@ -412,6 +573,18 @@ grid .textData2 -in .frmApp2 -row 0 -column 0 -columnspan 1 -sticky news
 grid .vScrollBar2 -in .frmApp2 -row 0 -column 1 -sticky news
 grid .hScrollBar2 -in .frmApp2 -row 1 -column 0 -sticky news
 
+grid .textData3 -in .frmApp3 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar3 -in .frmApp3 -row 0 -column 1 -sticky news
+grid .hScrollBar3 -in .frmApp3 -row 1 -column 0 -sticky news
+
+grid .textData4 -in .frmApp4 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar4 -in .frmApp4 -row 0 -column 1 -sticky news
+grid .hScrollBar4 -in .frmApp4 -row 1 -column 0 -sticky news
+
+grid .textData5 -in .frmApp5 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar5 -in .frmApp5 -row 0 -column 1 -sticky news
+grid .hScrollBar5 -in .frmApp5 -row 1 -column 0 -sticky news
+
 grid .frmAppB -in .frmApp -row 2 -column 0 -columnspan 4 -sticky news
 grid .butClear -in .frmAppB -row 0 -column 0 -sticky news -padx 0 -pady 0 -ipadx 0
 grid .butCommit -in .frmAppB -row 0 -column 1 -sticky news -padx 0 -pady 0 -ipadx 0
@@ -421,9 +594,16 @@ grid .butExit -in .frmAppB -row 0 -column 3 -sticky news -padx 0 -pady 0 -ipadx 
 ::tooltip::tooltip delay 512
 ::tooltip::tooltip fade true
 ::tooltip::tooltip $toolTipState
-tooltip::tooltip .textData "Use this area to manipulate miscelaneous text.\n\n\tW A R N I N G :\n\n* Never use this area to keep important notes indefinitely,\n  as they could and will eventually be overwritten.\n\n* To save your notes to a regular text file of your choice,\n  use the \"Save As\" option from the \"File\" context menu.\n\n* Before you load a text file from the \"File\" context menu,\n  ensure you have saved your current notes to a text file\n  using the \"Save As\" option from the \"File\" context menu\n  as your notes will be overwritten by the file's contents."
 
-tooltip::tooltip .textData2 "\W A R N I N G :\n\n* Nothing in this area is saved automatically. *\n\nUse the File popup menu to load / save from here."
+set WARNING "Use this area to manipulate miscelaneous text.\n\n\tW A R N I N G :\n\n* Never use this area to keep important notes indefinitely,\n  as they could and will eventually be overwritten.\n\n* To save your notes to a regular text file of your choice,\n  use the \"Save As\" option from the \"File\" context menu.\n\n* Before you load a text file from the \"File\" context menu,\n  ensure you have saved your current notes to a text file\n  using the \"Save As\" option from the \"File\" context menu\n  as your notes will be overwritten by the file's contents."
+
+set WARNING2 "W A R N I N G :\n\n* Nothing in this area (TempPad) is saved automatically. *\n\nUse the File popup menu to load / save from here."
+
+tooltip::tooltip .textData $WARNING
+tooltip::tooltip .textData2 $WARNING
+tooltip::tooltip .textData3 $WARNING
+tooltip::tooltip .textData4 $WARNING
+tooltip::tooltip .textData5 $WARNING
 
 tooltip::tooltip .butClear "Clear all text in the RoughPad."
 tooltip::tooltip .butCommit "Commit the RoughPad text now! (Text is auto-committed on exit, too)"
@@ -439,6 +619,9 @@ wm iconmask . @$env(HOME)/.local/share/icons/RoughPad-mask.xbm
 inverseToggle .textData inverseState
 wrapToggle .textData wrapState
 wrapToggle .textData2 wrapState2
+wrapToggle .textData3 wrapState3
+wrapToggle .textData4 wrapState4
+wrapToggle .textData5 wrapState5
 
 buttonCommitConfig
 
