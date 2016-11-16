@@ -10,4 +10,4 @@ Type=Application
 TryExec=RoughPad
 Exec=RoughPad
 Icon=RoughPad
-Categories=Utility;
+Categories=Development;Utility;

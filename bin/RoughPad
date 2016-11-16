@@ -20,6 +20,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# version 0.4.1 - Fixed Window Icon Format
 # version 0.4.0 - Added Autosave functionality for all extra areas
 # version 0.3.0 - Added WritePad Area
 # version 0.2.9 - Added AuxPad Area
@@ -187,7 +188,7 @@ proc checkIfIAmRunning {} {
   set amIRunning [ exec pgrep -lfc "$argv0" ]
   set amILocked [ file exist $LOCKFILE ]
   if {($amIRunning > 1) && ($amILocked)} {
-      exit 222
+    exit 222
   } elseif {($amIRunning > 1)} {
     set lockFile [ open "$LOCKFILE" "w" ]
     set myOwnPID [pid]
@@ -613,8 +614,9 @@ tooltip::tooltip .butExit "Commit the RoughPad text and exit."
 wm protocol . WM_DELETE_WINDOW { buttonCommitData; buttonExit }
 wm title .  "RoughPad v$programVersion"
 wm minsize . 320 240
-wm iconbitmap . @$env(HOME)/.local/share/icons/RoughPad.xbm
-wm iconmask . @$env(HOME)/.local/share/icons/RoughPad-mask.xbm
+
+set appIcon [ image create photo -file $env(HOME)/.local/share/icons/RoughPad.png ]
+wm iconphoto . -default $appIcon
 
 inverseToggle .textData inverseState
 wrapToggle .textData wrapState
