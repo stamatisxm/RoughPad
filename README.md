@@ -48,10 +48,7 @@ If everything has gone ok, you should be able to find the program in the _**Acce
 The tarball contains these files (relative to the user's $HOME):
 <pre>
 bin/RoughPad
-.icons/RoughPad-mask.xbm
 .icons/RoughPad.png
-.icons/RoughPad.xbm
-.icons/RoughPad.xpm
 .local/share/applications/RoughPad.desktop
 </pre>
 
