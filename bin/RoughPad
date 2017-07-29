@@ -20,12 +20,14 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# version 0.4.3 - Added Visual cue for saving
+# version 0.4.2 - Added <Alt-S> save all pads capability
 # version 0.4.1 - Fixed Window Icon Format
 # version 0.4.0 - Added Autosave functionality for all extra areas
 # version 0.3.0 - Added WritePad Area
 # version 0.2.9 - Added AuxPad Area
 # version 0.2.8 - Added ScrapPad Area
-# version 0.2.7 - Added <Alt-A> select all capability code
+# version 0.2.7 - Added <Alt-A> select all capability
 # version 0.2.6 - Cleaned up some debugging commented code
 # version 0.2.5 - Added tooltip toggle capability
 # version 0.2.4 - Altered the commit protocol for data and configuration
@@ -146,6 +148,8 @@ proc buttonCommitData {} {
   global ScrapPadFile
   global AuxPadFile
   global WritePadFile
+  global need2Save
+  global .statusLabel
   set fileHandle [ open "$RoughPadFile" "w" ]
   puts $fileHandle [ string trimright [ .textData get 1.0 end] \n ]
   close $fileHandle
@@ -161,6 +165,8 @@ proc buttonCommitData {} {
   set fileHandle [ open "$WritePadFile" "w" ]
   puts $fileHandle [ string trimright [ .textData5 get 1.0 end] \n ]
   close $fileHandle
+  set need2Save {off}
+  .statusLabel configure -background #00FF00 -text "Data has been saved successfully!"
 }
 
 proc loadFile {fileToLoad whatWidget} {
@@ -211,6 +217,8 @@ proc dTStamp {} {
   set currentTime [clock seconds]
   return [clock format $currentTime -format %Y%m%d%H%M%S]
 }
+
+set need2Save {off}
 
 set TMPDIR "/tmp"
 set LOCKFILE "$TMPDIR/RPRunning.${tcl_platform(user)}"
@@ -339,6 +347,8 @@ if { $isResourcePresent == 1 } {
 
 ttk::notebook .tabBook
 
+ttk::label .statusLabel -text "No outstanding data to be commited" -background #FF7F00 -relief ridge
+
 .tabBook add [ frame .frmApp -relief sunken -border 1 -padx 2 -pady 2 ] -text "RoughPad"
 .tabBook add [ frame .frmApp2 -relief sunken -border 1 -padx 2 -pady 2 ] -text "TempPad"
 .tabBook add [ frame .frmApp3 -relief sunken -border 1 -padx 2 -pady 2 ] -text "ScrapPad"
@@ -349,6 +359,9 @@ ttk::notebook::enableTraversal .tabBook
 frame .frmAppB -relief sunken -border 1 -padx 2 -pady 2
 
 grid rowconfigure . 0 -weight 1
+grid columnconfigure . 0 -weight 1
+
+grid rowconfigure . 1 -weight 0
 grid columnconfigure . 0 -weight 1
 
 grid rowconfigure .frmApp 0 -weight 1
@@ -424,11 +437,53 @@ bind .textData2 <3> {popupMenu .appMenu2 %x %y}
 bind .textData3 <3> {popupMenu .appMenu3 %x %y}
 bind .textData4 <3> {popupMenu .appMenu4 %x %y}
 bind .textData5 <3> {popupMenu .appMenu5 %x %y}
+
 bind .textData <Alt-a> { .textData tag add sel 1.0 end }
 bind .textData2 <Alt-a> { .textData2 tag add sel 1.0 end }
 bind .textData3 <Alt-a> { .textData3 tag add sel 1.0 end }
 bind .textData4 <Alt-a> { .textData4 tag add sel 1.0 end }
 bind .textData5 <Alt-a> { .textData5 tag add sel 1.0 end }
+
+#bind .textData <Mod2-a> { .textData tag add sel 1.0 end }
+#bind .textData2 <Mod2-a> { .textData2 tag add sel 1.0 end }
+#bind .textData3 <Mod2-a> { .textData3 tag add sel 1.0 end }
+#bind .textData4 <Mod2-a> { .textData4 tag add sel 1.0 end }
+#bind .textData5 <Mod2-a> { .textData5 tag add sel 1.0 end }
+
+bind .textData <Alt-s> { buttonCommitData }
+bind .textData2 <Alt-s> { buttonCommitData }
+bind .textData3 <Alt-s> { buttonCommitData }
+bind .textData4 <Alt-s> { buttonCommitData }
+bind .textData5 <Alt-s> { buttonCommitData }
+
+
+#foreach charInput $modXcluded {
+#  puts $charInput
+#}
+
+set modXcluded { 9 36 37 50 62 64 66 67 68 69 70 71 72 73 74 75 76 77 95 96 104 105 108 110 111 112 113 114 115 116 117 118 127 134 135 }
+
+bind .textData <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData2 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData2 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData3 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData3 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData4 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData4 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData5 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData5 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
+
+#bind . <Key> { puts %k }
 
 set fileTypes {
 	{{RoughPad Files} {.rpad}}
@@ -442,9 +497,9 @@ menu .appMenu -tearoff 0
 .appMenu.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData }
 .appMenu add separator
 .appMenu add cascade -label "Edit" -underline 0 -menu [menu .appMenu.editMenu -tearoff 0]
-.appMenu.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
-.appMenu.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu add separator
 .appMenu add cascade -label "Insert" -underline 0 -menu [menu .appMenu.insertMenu -tearoff 0]
 .appMenu.insertMenu add cascade -label "Time Stamp" -underline 0 -menu [menu .appMenu.insertMenu.dTStamp -tearoff 0]
@@ -518,9 +573,9 @@ menu .appMenu2 -tearoff 0
 .appMenu2.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData2 }
 .appMenu2 add separator
 .appMenu2 add cascade -label "Edit" -underline 0 -menu [menu .appMenu2.editMenu -tearoff 0]
-.appMenu2.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu2.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu2.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
-.appMenu2.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu2.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu2 add separator
 .appMenu2 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu2.prefMenu -tearoff 0]
 .appMenu2.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState2 -command { wrapToggle .textData2 wrapState2 ; buttonCommitConfig }
@@ -531,9 +586,9 @@ menu .appMenu3 -tearoff 0
 .appMenu3.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData3 }
 .appMenu3 add separator
 .appMenu3 add cascade -label "Edit" -underline 0 -menu [menu .appMenu3.editMenu -tearoff 0]
-.appMenu3.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu3.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu3.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
-.appMenu3.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu3.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu3 add separator
 .appMenu3 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu3.prefMenu -tearoff 0]
 .appMenu3.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState3 -command { wrapToggle .textData3 wrapState3 ; buttonCommitConfig }
@@ -544,9 +599,9 @@ menu .appMenu4 -tearoff 0
 .appMenu4.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData4 }
 .appMenu4 add separator
 .appMenu4 add cascade -label "Edit" -underline 0 -menu [menu .appMenu4.editMenu -tearoff 0]
-.appMenu4.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu4.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu4.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
-.appMenu4.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu4.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu4 add separator
 .appMenu4 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu4.prefMenu -tearoff 0]
 .appMenu4.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState4 -command { wrapToggle .textData4 wrapState4 ; buttonCommitConfig }
@@ -557,9 +612,9 @@ menu .appMenu5 -tearoff 0
 .appMenu5.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData5 }
 .appMenu5 add separator
 .appMenu5 add cascade -label "Edit" -underline 0 -menu [menu .appMenu5.editMenu -tearoff 0]
-.appMenu5.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu5.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu5.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
-.appMenu5.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu5.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background #FF0000 -text "You need to Save with <Alt><s> or Commit" } }
 .appMenu5 add separator
 .appMenu5 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu5.prefMenu -tearoff 0]
 .appMenu5.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState5 -command { wrapToggle .textData5 wrapState5 ; buttonCommitConfig }
@@ -591,6 +646,8 @@ grid .butClear -in .frmAppB -row 0 -column 0 -sticky news -padx 0 -pady 0 -ipadx
 grid .butCommit -in .frmAppB -row 0 -column 1 -sticky news -padx 0 -pady 0 -ipadx 0
 grid .butMinimize -in .frmAppB -row 0 -column 2 -sticky news -padx 0 -pady 0 -ipadx 0
 grid .butExit -in .frmAppB -row 0 -column 3 -sticky news -padx 0 -pady 0 -ipadx 0
+
+grid .statusLabel -in . -row 1 -column 0 -columnspan 4 -sticky news
 
 ::tooltip::tooltip delay 512
 ::tooltip::tooltip fade true
