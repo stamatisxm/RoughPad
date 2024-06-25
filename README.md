@@ -62,3 +62,5 @@ There are two variants of the program to download, one is set to work with _**tc
 #### tclx variant:
 **package require Tclx**  
 **#package require Signal**
+
+![image](https://github.com/stamatisxm/RoughPad/assets/12468393/3be00597-086f-446b-86b6-59abb115251b)
