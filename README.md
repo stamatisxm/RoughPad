@@ -1,7 +1,7 @@
 # RoughPad
 A Handy Tcl/Tk Jotter for the Desktop
 
-<img alt="RoughPad Logo" src="http://ideaware.xyz/wp-content/uploads/2015/12/RoughPad.png" width="48px" height="48px" />
+<img alt="RoughPad Logo" src="http://ideaware.stamatis.uk/wp-content/uploads/2015/12/RoughPad.png" width="48px" height="48px" />
 
 ## RoughPad - { Quick Note Manipulation }
 RoughPad is a simple Tcl/Tk application for handling and manipulating text, useful for programming, web surfing, keeping program notes and generally anything that may otherwise require keeping a pen and writing pad handy. The interface is super-simple and self explanatory.
