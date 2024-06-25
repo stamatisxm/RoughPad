@@ -1,0 +1,2889 @@
+#!/usr/bin/tclsh
+
+#
+#    Copyright (c) 2013-2023 Stamatis X. Mavrogeorgis
+#
+#    Author's Email: stamatis@zirconix.net
+#    Author's Website: http://istos.stamatis.uk
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+# version 0.7.4 - 20231225181907 - Added commit/backup button state change on TabChange
+# version 0.7.3 - 20230602180630 - Added Clear button to 'Note Search' and 'Quick Load' Tabs
+# version 0.7.2 - 20230601122449 - Refined somewhat the search facility for quick load
+# version 0.7.1 - 20230531212238 - Implemented rather crude search facility for quick load
+# version 0.7.0 - 20230511091659 - Added unlimited Undo/Redo capability to all Text Areas
+# version 0.6.9 - 20230508092318 - Added <Alt-r> text reverse shortcut to eXpendables
+# version 0.6.8 - 20230506221124 - Updated color schemes and color variables mechanism
+# version 0.6.7 - 20230505172859 - Set statusLabel to update if necessary on tab change
+# version 0.6.6 - 20230505120458 - Removed the Clear button from UI and made buttons wider
+# version 0.6.5 - 20230504210639 - Added 5 Development tabs with {,auto}{Load,Save} facility
+# version 0.6.4 - 20230504142832 - Corrected the -initialfile in each textpad area
+# version 0.6.3 - 20230503151920 - Added 5 eXpendable tabs with menu (NOT auto saved/backed up)
+# version 0.6.2 - 20230502020104 - Modified keycodes list for excluded symbols/modifiers :1269
+# version 0.6.1 - 20230428121324 - Added Menu on remaining tabs for Loading/Saving content
+# version 0.6.0 - 20230428154617 - Renamed Tabs consisely, made tabs spread equally
+# version 0.5.9 - 20230408191628 - Added Quick Load along the Search Capability
+# version 0.5.8 - 20230408105637 - Added Search Capability and disabled 'Clear RoughPad'
+# version 0.5.7 - 20220523120229 - Split tabs into groups
+# version 0.5.6 - 20220311220730 - Renamed to SXRoughPad and added global functionality
+# version 0.5.5 - 20210726182845 - Added 10 more Pads
+# version 0.5.4 - 20200611105856 - Added Control-Space binding for newline
+# version 0.5.3 - 20200313113220 - Fixed Proj file backup bug
+# version 0.5.2 - 20200227142255 - Fixed mingled wrapstate and textdata savefiles
+# version 0.5.1 - 20200226085449 - Changed cursor and colour for control buttons
+# version 0.5.0 - 20200225153928 - Rearrangement of control buttons
+# version 0.4.9 - 20200225120005 - Addition of 5 'Project' Pads
+# version 0.4.8 - Added backup facility for Pads
+# version 0.4.7 - Cleaned Layout and buttons
+# version 0.4.6 - Fixed up variable names
+# version 0.4.5 - Added Μore Temporary Pads
+# version 0.4.4 - Added Visual cue for saving on Clear Button
+# version 0.4.3 - Added Visual cue for saving
+# version 0.4.2 - Added <Alt-S> save all pads capability
+# version 0.4.1 - Fixed Window Icon Format
+# version 0.4.0 - Added Autosave functionality for all extra areas
+# version 0.3.0 - Added WritePad Area
+# version 0.2.9 - Added AuxPad Area
+# version 0.2.8 - Added JunkPad Area
+# version 0.2.7 - Added <Alt-A> select all capability
+# version 0.2.6 - Cleaned up some debugging commented code
+# version 0.2.5 - Added tooltip toggle capability
+# version 0.2.4 - Altered the commit protocol for data and configuration
+# version 0.2.3 - Added Tab With Temporary Area
+# version 0.2.2 - Tweaked the context menu
+# version 0.2.1 - Added Blank Lines Insert in the context menu
+# version 0.2.0 - Added Clear Failsafe functionality
+# version 0.1.8 - Added RoughPadStore functionality
+# version 0.1.7 - Added DateTime Stamp on Save As option
+# version 0.1.6 - Added File Load / Save As options
+# version 0.1.5 - Added Break Bars Insert in the context menu
+# version 0.1.4 - Added more items to menu
+# version 0.1.3 - Added more items to menu
+# version 0.1.2 - Added more bits and pieces
+# version 0.1.0 - Added bits and pieces
+# version 0.0.1 - Initial Program
+
+package require Tk
+package require Tclx
+#package require Signal
+package require tooltip
+package require autoscroll
+
+proc programAbout {} {
+  global argv0 programName programVersion programLicense
+  set sysDateTime [ clock seconds ]
+  set currYear [ clock format $sysDateTime -format %Y ]
+  set sxTab {        }
+  set aboutMessage "$programName v$programVersion\n${sxTab}Copyright (c) 2013-$currYear\n${sxTab}Stamatis X. Mavrogeorgis\n${sxTab}Email: stamatis@zirconix.net\n${sxTab}Web: http://istos.stamatis.uk"
+  set aboutDetail "$programLicense\n\nThis program comes with\n${sxTab}${sxTab}ABSOLUTELY NO WARRANTY;\n\nThis is free software, and you are welcome to\nredistribute it under certain conditions; - See:\nGPL-3.0 on <http://www.gnu.org/licenses/>"
+  option add *__tk__messagebox*wrapLength {352}
+  tk_messageBox -title "$programName v$programVersion" -message $aboutMessage -detail $aboutDetail
+}
+
+proc insertCharsAtTop {howMany whatChar whatWidget } {
+  $whatWidget insert 1.0 {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert 1.0 $whatChar
+  }
+  $whatWidget insert 1.0 {}
+}
+
+proc insertCharsAtCursor {howMany whatChar whatWidget } {
+  $whatWidget insert insert {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert insert $whatChar
+  }
+  $whatWidget insert insert {}
+}
+
+proc insertCharsHere {howMany whatChar whatWidget } {
+  $whatWidget insert current {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert current $whatChar
+  }
+  $whatWidget insert current {}
+}
+
+proc insertCharsAtBottom {howMany whatChar whatWidget } {
+  $whatWidget insert end {}
+  for { set i 0 } { $i < $howMany } { incr i } {
+    $whatWidget insert end $whatChar
+  }
+  $whatWidget insert end {}
+}
+
+proc wrapToggle { whatWidget whatState } {
+  upvar #0 $whatState myState
+  if { $myState == {on} } {
+    $whatWidget configure -wrap word
+  } else {
+    $whatWidget configure -wrap none
+  }
+}
+
+proc inverseToggle { whatWidget whatState } {
+  upvar #0 $whatState myState
+  # either:
+  global IBG IFG
+  # or: lassign {{#000000} {#FFFFFF}} IBG IFG
+  if { $myState == {on} } {
+    $whatWidget configure -background $IBG -foreground $IFG
+  } else {
+    $whatWidget configure -background $IFG -foreground $IBG
+  }
+}
+
+proc popupMenu {txtAreaMenu xComp yComp} {
+  set xCoord [ expr [ winfo rootx . ]+ $xComp ]
+  set yCoord [ expr [ winfo rooty . ]+ $yComp ]
+  tk_popup $txtAreaMenu $xCoord $yCoord
+}
+
+proc buttonClear {} {
+  #global need2Save $RSTLBL
+  #set answer [ tk_dialog .cRPDialog {Data Destruction} {Clear RoughPad contents?} warning 1 {Yes} {No} ]
+  #if { $answer == 0 } { .textData001 delete 1.0 end; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+}
+
+proc buttonExit {} {
+  global LOCKFILE
+  file delete $LOCKFILE
+  exit
+}
+
+proc qLContentsSearchInit {} {
+  global qLSearchString qLSearchSIndex
+  toplevel .qLCSDialog
+  wm title .qLCSDialog {Find String...}
+  set qLSearchSIndex {1.0}
+  entry .qLCSDialog.searchString -textvar qLSearchString -width 64 -exportselection true
+
+  grid rowconfigure .qLCSDialog 0 -weight 0
+  grid columnconfigure .qLCSDialog 0 -weight 1
+
+  grid .qLCSDialog.searchString -in .qLCSDialog -row 0 -column 0 -columnspan 1 -pady 4 -padx 4 -sticky news
+
+  focus .qLCSDialog.searchString
+  bind .qLCSDialog.searchString <Alt-a> { .qLCSDialog.searchString selection range 0 end }
+
+  #set dlg .qLCSDialog
+  # Last good working ### bind $dlg <Return> { .fileContents tag remove searchfound 1.0 end; qLContentsSearch; destroy .qLCSDialog }
+  # Last good working ### bind $dlg <Escape> { destroy .qLCSDialog }
+  # Alternative working # bind $dlg <Escape> { set qLSearchString {}; destroy .qLCSDialog }
+
+  bind .qLCSDialog <Return> { .fileContents tag remove searchfound 1.0 end; qLContentsSearch; destroy .qLCSDialog }
+  bind .qLCSDialog <Escape> { destroy .qLCSDialog }
+
+  wm minsize .qLCSDialog 128 32
+  wm resizable .qLCSDialog 1 0
+  wm attribute .qLCSDialog -topmost 1
+  wm attribute .qLCSDialog -type toolbar
+  # Convenient but not the best ### wm attribute .qLCSDialog -type utility
+  # Pretty but impractical ### wm attribute .qLCSDialog -type dock
+  # This removes all decorations (not practical) ###  wm overrideredirect .qLCSDialog 1
+  wm transient .qLCSDialog .
+  grab .qLCSDialog
+}
+
+proc qLContentsSearch {} {
+  global qLSearchString qLSearchSIndex
+  try {
+    set qLSearchSIndex [.fileContents search -forwards -count length $qLSearchString $qLSearchSIndex end]
+    .fileContents see $qLSearchSIndex
+    .fileContents tag add searchfound $qLSearchSIndex "$qLSearchSIndex + $length char"
+    .fileContents tag configure searchfound -foreground #FFFFFF -background #000000
+    set qLSearchSIndex "$qLSearchSIndex + $length char"
+  } on error {} {}
+}
+
+#  set dlg .qLCSDialog
+#  bind $dlg <Return> [list set qLSearchString($dlg) 1]
+#  bind $dlg <Escape> [list set qLSearchString($dlg) 0]
+#  # Trapping a window manager message; slightly different to normal events for historical reasons
+#  wm protocol $dlg WM_DELETE_WINDOW [list set qLSearchString($dlg) 0]
+
+proc buttonNoteSClear {} {
+  global noteSearchString
+  set noteSearchString {}
+  .searchResults configure -state normal
+  .searchResults delete 1.0 end
+  .searchResults configure -state disabled
+}
+
+proc buttonNoteSearch {} {
+  global noteSearchString roughPadStore
+  .searchResults configure -state normal
+  .searchResults delete 1.0 end
+  try {
+    if { $noteSearchString != {} } {
+      .searchResults insert end [ exec grep -lirs "$noteSearchString" $roughPadStore ]
+    }
+  }  on error {} {
+      .searchResults insert end {}
+  }
+  .searchResults configure -state disabled
+}
+
+proc buttonCommitConfig {} {
+  global inverseState wrapState001 wrapState002 wrapState003 wrapState004 wrapState005 wrapState006 wrapState007 wrapState008 wrapState009 wrapState010 wrapState011 wrapState012 wrapState013 wrapState014 wrapState015 wrapState016 wrapState017 wrapState018 wrapState019 wrapState020 wrapState021 wrapState022 wrapState023 wrapState024 wrapState025 wrapState026 wrapState027 wrapState028 wrapState029 wrapState030 wrapState210 wrapState211 wrapState212 wrapState213 wrapState214 toolTipState programResourceFile
+  set fileHandle [ open "$programResourceFile" "w" ]
+  puts $fileHandle "inverseState $inverseState"
+  puts $fileHandle "wrapState001 $wrapState001"
+  puts $fileHandle "wrapState002 $wrapState002"
+  puts $fileHandle "wrapState003 $wrapState003"
+  puts $fileHandle "wrapState004 $wrapState004"
+  puts $fileHandle "wrapState005 $wrapState005"
+  puts $fileHandle "wrapState006 $wrapState006"
+  puts $fileHandle "wrapState007 $wrapState007"
+  puts $fileHandle "wrapState008 $wrapState008"
+  puts $fileHandle "wrapState009 $wrapState009"
+  puts $fileHandle "wrapState010 $wrapState010"
+  puts $fileHandle "wrapState011 $wrapState011"
+  puts $fileHandle "wrapState012 $wrapState012"
+  puts $fileHandle "wrapState013 $wrapState013"
+  puts $fileHandle "wrapState014 $wrapState014"
+  puts $fileHandle "wrapState015 $wrapState015"
+  puts $fileHandle "wrapState016 $wrapState016"
+  puts $fileHandle "wrapState017 $wrapState017"
+  puts $fileHandle "wrapState018 $wrapState018"
+  puts $fileHandle "wrapState019 $wrapState019"
+  puts $fileHandle "wrapState020 $wrapState020"
+  puts $fileHandle "wrapState021 $wrapState021"
+  puts $fileHandle "wrapState022 $wrapState022"
+  puts $fileHandle "wrapState023 $wrapState023"
+  puts $fileHandle "wrapState024 $wrapState024"
+  puts $fileHandle "wrapState025 $wrapState025"
+  puts $fileHandle "wrapState026 $wrapState026"
+  puts $fileHandle "wrapState027 $wrapState027"
+  puts $fileHandle "wrapState028 $wrapState028"
+  puts $fileHandle "wrapState029 $wrapState029"
+  puts $fileHandle "wrapState030 $wrapState030"
+  puts $fileHandle "wrapState210 $wrapState210"
+  puts $fileHandle "wrapState211 $wrapState211"
+  puts $fileHandle "wrapState212 $wrapState212"
+  puts $fileHandle "wrapState213 $wrapState213"
+  puts $fileHandle "wrapState214 $wrapState214"
+  puts $fileHandle "toolTipState $toolTipState"
+  close $fileHandle
+}
+
+proc buttonCommitData {} {
+  global RoughPadFile
+  global ScrapPadFile
+  global JunkPadFile
+  global AuxPadFile
+  global TempPadFile
+  global JotPadFile0
+  global JotPadFile1
+  global JotPadFile2
+  global JotPadFile3
+  global JotPadFile4
+  global TextPadFile0
+  global TextPadFile1
+  global TextPadFile2
+  global TextPadFile3
+  global TextPadFile4
+  global WritePadFile0
+  global WritePadFile1
+  global WritePadFile2
+  global WritePadFile3
+  global WritePadFile4
+  global ProjectPadFile0
+  global ProjectPadFile1
+  global ProjectPadFile2
+  global ProjectPadFile3
+  global ProjectPadFile4
+  global DevelopPadFile0
+  global DevelopPadFile1
+  global DevelopPadFile2
+  global DevelopPadFile3
+  global DevelopPadFile4
+  global need2Save
+  global GSTLBL
+  global .statusLabel
+  set fileHandle [ open "$RoughPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData001 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ScrapPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData002 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JunkPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData003 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$AuxPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData004 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TempPadFile" "w" ]
+  puts $fileHandle [ string trimright [ .textData005 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JotPadFile0" "w" ]
+  puts $fileHandle [ string trimright [ .textData006 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JotPadFile1" "w" ]
+  puts $fileHandle [ string trimright [ .textData007 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JotPadFile2" "w" ]
+  puts $fileHandle [ string trimright [ .textData008 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JotPadFile3" "w" ]
+  puts $fileHandle [ string trimright [ .textData009 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$JotPadFile4" "w" ]
+  puts $fileHandle [ string trimright [ .textData010 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TextPadFile0" "w" ]
+  puts $fileHandle [ string trimright [ .textData011 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TextPadFile1" "w" ]
+  puts $fileHandle [ string trimright [ .textData012 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TextPadFile2" "w" ]
+  puts $fileHandle [ string trimright [ .textData013 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TextPadFile3" "w" ]
+  puts $fileHandle [ string trimright [ .textData014 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$TextPadFile4" "w" ]
+  puts $fileHandle [ string trimright [ .textData015 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile0" "w" ]
+  puts $fileHandle [ string trimright [ .textData016 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile1" "w" ]
+  puts $fileHandle [ string trimright [ .textData017 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile2" "w" ]
+  puts $fileHandle [ string trimright [ .textData018 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile3" "w" ]
+  puts $fileHandle [ string trimright [ .textData019 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$WritePadFile4" "w" ]
+  puts $fileHandle [ string trimright [ .textData020 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ProjectPadFile0" "w" ]
+  puts $fileHandle [ string trimright [ .textData021 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ProjectPadFile1" "w" ]
+  puts $fileHandle [ string trimright [ .textData022 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ProjectPadFile2" "w" ]
+  puts $fileHandle [ string trimright [ .textData023 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ProjectPadFile3" "w" ]
+  puts $fileHandle [ string trimright [ .textData024 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$ProjectPadFile4" "w" ]
+  puts $fileHandle [ string trimright [ .textData025 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$DevelopPadFile0" "w" ]
+  puts $fileHandle [ string trimright [ .textData026 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$DevelopPadFile1" "w" ]
+  puts $fileHandle [ string trimright [ .textData027 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$DevelopPadFile2" "w" ]
+  puts $fileHandle [ string trimright [ .textData028 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$DevelopPadFile3" "w" ]
+  puts $fileHandle [ string trimright [ .textData029 get 1.0 end] \n ]
+  close $fileHandle
+  set fileHandle [ open "$DevelopPadFile4" "w" ]
+  puts $fileHandle [ string trimright [ .textData030 get 1.0 end] \n ]
+  close $fileHandle
+  set need2Save {off}
+  .statusLabel configure -background $GSTLBL -text "Data has been saved successfully!"
+}
+
+proc buttonBackupData {} {
+  set currentDateTimeStamp [dTStamp]
+  global backupDir 
+  global bRoughPadFile
+  global bScrapPadFile
+  global bJunkPadFile
+  global bAuxPadFile
+  global bTempPadFile
+  global bJotPadFile0
+  global bJotPadFile1
+  global bJotPadFile2
+  global bJotPadFile3
+  global bJotPadFile4
+  global bTextPadFile0
+  global bTextPadFile1
+  global bTextPadFile2
+  global bTextPadFile3
+  global bTextPadFile4
+  global bWritePadFile0
+  global bWritePadFile1
+  global bWritePadFile2
+  global bWritePadFile3
+  global bWritePadFile4
+  global bProjectPadFile0
+  global bProjectPadFile1
+  global bProjectPadFile2
+  global bProjectPadFile3
+  global bProjectPadFile4
+  global bDevelopPadFile0
+  global bDevelopPadFile1
+  global bDevelopPadFile2
+  global bDevelopPadFile3
+  global bDevelopPadFile4
+  global RoughPadFile
+  global ScrapPadFile
+  global JunkPadFile
+  global AuxPadFile
+  global TempPadFile
+  global JotPadFile0
+  global JotPadFile1
+  global JotPadFile2
+  global JotPadFile3
+  global JotPadFile4
+  global TextPadFile0
+  global TextPadFile1
+  global TextPadFile2
+  global TextPadFile3
+  global TextPadFile4
+  global WritePadFile0
+  global WritePadFile1
+  global WritePadFile2
+  global WritePadFile3
+  global WritePadFile4
+  global ProjectPadFile0
+  global ProjectPadFile1
+  global ProjectPadFile2
+  global ProjectPadFile3
+  global ProjectPadFile4
+  global DevelopPadFile0
+  global DevelopPadFile1
+  global DevelopPadFile2
+  global DevelopPadFile3
+  global DevelopPadFile4
+  file mkdir $backupDir
+  file copy $RoughPadFile $backupDir/$bRoughPadFile.$currentDateTimeStamp
+  file copy $ScrapPadFile $backupDir/$bScrapPadFile.$currentDateTimeStamp
+  file copy $JunkPadFile $backupDir/$bJunkPadFile.$currentDateTimeStamp
+  file copy $AuxPadFile $backupDir/$bAuxPadFile.$currentDateTimeStamp
+  file copy $TempPadFile $backupDir/$bTempPadFile.$currentDateTimeStamp
+  file copy $JotPadFile0 $backupDir/$bJotPadFile0.$currentDateTimeStamp
+  file copy $JotPadFile1 $backupDir/$bJotPadFile1.$currentDateTimeStamp
+  file copy $JotPadFile2 $backupDir/$bJotPadFile2.$currentDateTimeStamp
+  file copy $JotPadFile3 $backupDir/$bJotPadFile3.$currentDateTimeStamp
+  file copy $JotPadFile4 $backupDir/$bJotPadFile4.$currentDateTimeStamp
+  file copy $TextPadFile0 $backupDir/$bTextPadFile0.$currentDateTimeStamp
+  file copy $TextPadFile1 $backupDir/$bTextPadFile1.$currentDateTimeStamp
+  file copy $TextPadFile2 $backupDir/$bTextPadFile2.$currentDateTimeStamp
+  file copy $TextPadFile3 $backupDir/$bTextPadFile3.$currentDateTimeStamp
+  file copy $TextPadFile4 $backupDir/$bTextPadFile4.$currentDateTimeStamp
+  file copy $WritePadFile0 $backupDir/$bWritePadFile0.$currentDateTimeStamp
+  file copy $WritePadFile1 $backupDir/$bWritePadFile1.$currentDateTimeStamp
+  file copy $WritePadFile2 $backupDir/$bWritePadFile2.$currentDateTimeStamp
+  file copy $WritePadFile3 $backupDir/$bWritePadFile3.$currentDateTimeStamp
+  file copy $WritePadFile4 $backupDir/$bWritePadFile4.$currentDateTimeStamp
+  file copy $ProjectPadFile0 $backupDir/$bProjectPadFile0.$currentDateTimeStamp
+  file copy $ProjectPadFile1 $backupDir/$bProjectPadFile1.$currentDateTimeStamp
+  file copy $ProjectPadFile2 $backupDir/$bProjectPadFile2.$currentDateTimeStamp
+  file copy $ProjectPadFile3 $backupDir/$bProjectPadFile3.$currentDateTimeStamp
+  file copy $ProjectPadFile4 $backupDir/$bProjectPadFile4.$currentDateTimeStamp
+  file copy $DevelopPadFile0 $backupDir/$bDevelopPadFile0.$currentDateTimeStamp
+  file copy $DevelopPadFile1 $backupDir/$bDevelopPadFile1.$currentDateTimeStamp
+  file copy $DevelopPadFile2 $backupDir/$bDevelopPadFile2.$currentDateTimeStamp
+  file copy $DevelopPadFile3 $backupDir/$bDevelopPadFile3.$currentDateTimeStamp
+  file copy $DevelopPadFile4 $backupDir/$bDevelopPadFile4.$currentDateTimeStamp
+  tk_messageBox -title {Backup Information} -message {Backup completed successfully!} -type ok
+}
+
+proc loadFile {fileToLoad whatWidget} {
+  global fileData000
+  set fileToLoad [ string trimright $fileToLoad ]
+  if { [ file exists $fileToLoad ] } {
+    set fileHandle [ open "$fileToLoad" "r" ]
+    set fileData000 [ string trimright [ read $fileHandle ] \n ]
+    close $fileHandle
+    $whatWidget delete 1.0 end
+    $whatWidget insert end $fileData000
+  }
+}
+
+proc saveAsFile {fileToSaveAs whatWidget} {
+  if { $fileToSaveAs != "" } {
+    set fileHandle [ open "$fileToSaveAs" "w" ]
+    puts $fileHandle [ string trimright [ $whatWidget get 1.0 end] \n ]
+    close $fileHandle
+  }
+}
+
+proc checkIfIAmRunning {} {
+  global argv0 LOCKDIR LOCKFILE
+#  set currExecName [file tail $argv0]
+  set currExecName [file tail [info script]]
+#  set amIRunning [ exec pgrep -lfc "$argv0" ]
+#  set amIRunning [ exec pgrep -lfc "$currExecName" ]
+  set amIRunning [ exec pgrep -lc "$currExecName" ]
+  set amILocked [ file exist $LOCKFILE ]
+  if {($amIRunning > 1) && ($amILocked)} {
+    exit 222
+  } elseif {($amIRunning > 1)} {
+    set lockFile [ open "$LOCKFILE" "w" ]
+    set myOwnPID [pid]
+    puts $lockFile [ exec pgrep -f "$argv0" | grep -v "$myOwnPID" ]
+    close $lockFile
+    exit 222
+  } elseif {($amILocked)} {
+    file delete $LOCKFILE
+    set lockFile [ open "$LOCKFILE" "w" ]
+    puts $lockFile [pid]
+    close $lockFile
+  } else {
+    set lockFile [ open "$LOCKFILE" "w" ]
+    puts $lockFile [pid]
+    close $lockFile
+  }
+}
+
+proc dTStamp {} {
+  set currentTime [clock seconds]
+  return [clock format $currentTime -format %Y%m%d%H%M%S]
+}
+
+set need2Save {off}
+
+set LOCKDIR "/dev/shm"
+set LOCKFILE "$LOCKDIR/RPRunning.${tcl_platform(user)}"
+
+checkIfIAmRunning
+
+set programName [ file tail $argv0 ]
+set tmpMessage [ catch { exec grep {^# version} $argv0 | cut -f3 -d\  | sort -r | head -1 } programVersion ]
+set programLicense {GNU General Public License, version 3 (GPL-3.0)}
+
+set inverseState {off}
+
+set wrapState001 {on}
+set wrapState002 {on}
+set wrapState003 {on}
+set wrapState004 {on}
+set wrapState005 {on}
+set wrapState006 {on}
+set wrapState007 {on}
+set wrapState008 {on}
+set wrapState009 {on}
+set wrapState010 {on}
+set wrapState011 {on}
+set wrapState012 {on}
+set wrapState013 {on}
+set wrapState014 {on}
+set wrapState015 {on}
+set wrapState016 {on}
+set wrapState017 {on}
+set wrapState018 {on}
+set wrapState019 {on}
+set wrapState020 {on}
+set wrapState021 {on}
+set wrapState022 {on}
+set wrapState023 {on}
+set wrapState024 {on}
+set wrapState025 {on}
+set wrapState026 {on}
+set wrapState027 {on}
+set wrapState028 {on}
+set wrapState029 {on}
+set wrapState030 {on}
+set wrapState210 {on}
+set wrapState211 {on}
+set wrapState212 {on}
+set wrapState213 {on}
+set wrapState214 {on}
+
+set toolTipState {on}
+
+set programResourceFile $env(HOME)/.RoughPadrc
+set roughPadStore $env(HOME)/.RoughPadStore
+set backupDir $roughPadStore/.backup
+
+if { [ file isfile $roughPadStore ] } {
+  file rename $roughPadStore $roughPadStore.[dTStamp]
+  file mkdir $roughPadStore
+}
+
+if { ! [ file isdirectory $roughPadStore ] } {
+  file mkdir $roughPadStore
+}
+
+set RoughPadFile $roughPadStore/.RoughPad.rpad
+set ScrapPadFile $roughPadStore/.ScrapPad.rpad
+set JunkPadFile $roughPadStore/.JunkPad.rpad
+set AuxPadFile $roughPadStore/.AuxPad.rpad
+set TempPadFile $roughPadStore/.TempPad.rpad
+set JotPadFile0 $roughPadStore/.JotPad0.rpad
+set JotPadFile1 $roughPadStore/.JotPad1.rpad
+set JotPadFile2 $roughPadStore/.JotPad2.rpad
+set JotPadFile3 $roughPadStore/.JotPad3.rpad
+set JotPadFile4 $roughPadStore/.JotPad4.rpad
+set TextPadFile0 $roughPadStore/.TextPad0.rpad
+set TextPadFile1 $roughPadStore/.TextPad1.rpad
+set TextPadFile2 $roughPadStore/.TextPad2.rpad
+set TextPadFile3 $roughPadStore/.TextPad3.rpad
+set TextPadFile4 $roughPadStore/.TextPad4.rpad
+set WritePadFile0 $roughPadStore/.WritePad0.rpad
+set WritePadFile1 $roughPadStore/.WritePad1.rpad
+set WritePadFile2 $roughPadStore/.WritePad2.rpad
+set WritePadFile3 $roughPadStore/.WritePad3.rpad
+set WritePadFile4 $roughPadStore/.WritePad4.rpad
+set ProjectPadFile0 $roughPadStore/.ProjectPad0.rpad
+set ProjectPadFile1 $roughPadStore/.ProjectPad1.rpad
+set ProjectPadFile2 $roughPadStore/.ProjectPad2.rpad
+set ProjectPadFile3 $roughPadStore/.ProjectPad3.rpad
+set ProjectPadFile4 $roughPadStore/.ProjectPad4.rpad
+set DevelopPadFile0 $roughPadStore/.DevelopPad0.rpad
+set DevelopPadFile1 $roughPadStore/.DevelopPad1.rpad
+set DevelopPadFile2 $roughPadStore/.DevelopPad2.rpad
+set DevelopPadFile3 $roughPadStore/.DevelopPad3.rpad
+set DevelopPadFile4 $roughPadStore/.DevelopPad4.rpad
+
+set bRoughPadFile .RoughPad.rpad
+set bScrapPadFile .ScrapPad.rpad
+set bJunkPadFile .JunkPad.rpad
+set bAuxPadFile .AuxPad.rpad
+set bTempPadFile .TempPad.rpad
+set bJotPadFile0 .JotPad0.rpad
+set bJotPadFile1 .JotPad1.rpad
+set bJotPadFile2 .JotPad2.rpad
+set bJotPadFile3 .JotPad3.rpad
+set bJotPadFile4 .JotPad4.rpad
+set bTextPadFile0 .TextPad0.rpad
+set bTextPadFile1 .TextPad1.rpad
+set bTextPadFile2 .TextPad2.rpad
+set bTextPadFile3 .TextPad3.rpad
+set bTextPadFile4 .TextPad4.rpad
+set bWritePadFile0 .WritePad0.rpad
+set bWritePadFile1 .WritePad1.rpad
+set bWritePadFile2 .WritePad2.rpad
+set bWritePadFile3 .WritePad3.rpad
+set bWritePadFile4 .WritePad4.rpad
+set bProjectPadFile0 .ProjectPad0.rpad
+set bProjectPadFile1 .ProjectPad1.rpad
+set bProjectPadFile2 .ProjectPad2.rpad
+set bProjectPadFile3 .ProjectPad3.rpad
+set bProjectPadFile4 .ProjectPad4.rpad
+set bDevelopPadFile0 .DevelopPad0.rpad
+set bDevelopPadFile1 .DevelopPad1.rpad
+set bDevelopPadFile2 .DevelopPad2.rpad
+set bDevelopPadFile3 .DevelopPad3.rpad
+set bDevelopPadFile4 .DevelopPad4.rpad
+
+set isResourcePresent [ file exists $programResourceFile ]
+set fileData000 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$programResourceFile" "r" ]
+  set fileData000 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+
+  set data [split $fileData000 "\n"]
+  set dataLineCounter 0
+  foreach line $data {
+    set line [ regexp -all -inline {\S+} $line ]
+    set line [ split $line { } ]
+    if { $dataLineCounter == 0 } {
+      global inverseState
+      set inverseState [ lassign $line inverseState ]
+    } elseif { $dataLineCounter == 1 } {
+      global wrapState001
+      set wrapState001 [ lassign $line wrapState001 ]
+    } elseif { $dataLineCounter == 2 } {
+      global wrapState002
+      set wrapState002 [ lassign $line wrapState002 ]
+    } elseif { $dataLineCounter == 3 } {
+      global wrapState003
+      set wrapState003 [ lassign $line wrapState003 ]
+    } elseif { $dataLineCounter == 4 } {
+      global wrapState004
+      set wrapState004 [ lassign $line wrapState004 ]
+    } elseif { $dataLineCounter == 5 } {
+      global wrapState005
+      set wrapState005 [ lassign $line wrapState005 ]
+    } elseif { $dataLineCounter == 6 } {
+      global wrapState006
+      set wrapState006 [ lassign $line wrapState006 ]
+    } elseif { $dataLineCounter == 7 } {
+      global wrapState007
+      set wrapState007 [ lassign $line wrapState007 ]
+    } elseif { $dataLineCounter == 8 } {
+      global wrapState008
+      set wrapState008 [ lassign $line wrapState008 ]
+    } elseif { $dataLineCounter == 9 } {
+      global wrapState009
+      set wrapState009 [ lassign $line wrapState009 ]
+    } elseif { $dataLineCounter == 10 } {
+      global wrapState010
+      set wrapState010 [ lassign $line wrapState010 ]
+    } elseif { $dataLineCounter == 11 } {
+      global wrapState011
+      set wrapState011 [ lassign $line wrapState011 ]
+    } elseif { $dataLineCounter == 12 } {
+      global wrapState012
+      set wrapState012 [ lassign $line wrapState012 ]
+    } elseif { $dataLineCounter == 13 } {
+      global wrapState013
+      set wrapState013 [ lassign $line wrapState013 ]
+    } elseif { $dataLineCounter == 14 } {
+      global wrapState014
+      set wrapState014 [ lassign $line wrapState014 ]
+    } elseif { $dataLineCounter == 15 } {
+      global wrapState015
+      set wrapState015 [ lassign $line wrapState015 ]
+    } elseif { $dataLineCounter == 16 } {
+      global wrapState016
+      set wrapState016 [ lassign $line wrapState016 ]
+    } elseif { $dataLineCounter == 17 } {
+      global wrapState017
+      set wrapState017 [ lassign $line wrapState017 ]
+    } elseif { $dataLineCounter == 18 } {
+      global wrapState018
+      set wrapState018 [ lassign $line wrapState018 ]
+    } elseif { $dataLineCounter == 19 } {
+      global wrapState019
+      set wrapState019 [ lassign $line wrapState019 ]
+    } elseif { $dataLineCounter == 20 } {
+      global wrapState020
+      set wrapState020 [ lassign $line wrapState020 ]
+    } elseif { $dataLineCounter == 21 } {
+      global wrapState021
+      set wrapState021 [ lassign $line wrapState021 ]
+    } elseif { $dataLineCounter == 22 } {
+      global wrapState022
+      set wrapState022 [ lassign $line wrapState022 ]
+    } elseif { $dataLineCounter == 23 } {
+      global wrapState023
+      set wrapState023 [ lassign $line wrapState023 ]
+    } elseif { $dataLineCounter == 24 } {
+      global wrapState024
+      set wrapState024 [ lassign $line wrapState024 ]
+    } elseif { $dataLineCounter == 25 } {
+      global wrapState025
+      set wrapState025 [ lassign $line wrapState025 ]
+    } elseif { $dataLineCounter == 26 } {
+      global wrapState026
+      set wrapState026 [ lassign $line wrapState026 ]
+    } elseif { $dataLineCounter == 27 } {
+      global wrapState027
+      set wrapState027 [ lassign $line wrapState027 ]
+    } elseif { $dataLineCounter == 28 } {
+      global wrapState028
+      set wrapState028 [ lassign $line wrapState028 ]
+    } elseif { $dataLineCounter == 29 } {
+      global wrapState029
+      set wrapState029 [ lassign $line wrapState029 ]
+    } elseif { $dataLineCounter == 30 } {
+      global wrapState030
+      set wrapState030 [ lassign $line wrapState030 ]
+    } elseif { $dataLineCounter == 31 } {
+      global wrapState210
+      set wrapState210 [ lassign $line wrapState210 ]
+    } elseif { $dataLineCounter == 32 } {
+      global wrapState211
+      set wrapState211 [ lassign $line wrapState211 ]
+    } elseif { $dataLineCounter == 33 } {
+      global wrapState212
+      set wrapState212 [ lassign $line wrapState212 ]
+    } elseif { $dataLineCounter == 34 } {
+      global wrapState213
+      set wrapState213 [ lassign $line wrapState213 ]
+    } elseif { $dataLineCounter == 35 } {
+      global wrapState214
+      set wrapState214 [ lassign $line wrapState214 ]
+    } elseif { $dataLineCounter == 36 } {
+      global toolTipState
+      set toolTipState [ lassign $line toolTipState ]
+    }
+    incr dataLineCounter
+  }
+}
+
+### CHK1 ###### SXM #### File Loading #############
+
+set isResourcePresent [ file exists $RoughPadFile ]
+set fileData001 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$RoughPadFile" "r" ]
+  set fileData001 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ScrapPadFile ]
+set fileData002 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ScrapPadFile" "r" ]
+  set fileData002 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JunkPadFile ]
+set fileData003 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JunkPadFile" "r" ]
+  set fileData003 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $AuxPadFile ]
+set fileData004 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$AuxPadFile" "r" ]
+  set fileData004 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TempPadFile ]
+set fileData005 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TempPadFile" "r" ]
+  set fileData005 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JotPadFile0 ]
+set fileData006 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JotPadFile0" "r" ]
+  set fileData006 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JotPadFile1 ]
+set fileData007 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JotPadFile1" "r" ]
+  set fileData007 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JotPadFile2 ]
+set fileData008 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JotPadFile2" "r" ]
+  set fileData008 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JotPadFile3 ]
+set fileData009 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JotPadFile3" "r" ]
+  set fileData009 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $JotPadFile4 ]
+set fileData010 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$JotPadFile4" "r" ]
+  set fileData010 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TextPadFile0 ]
+set fileData011 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TextPadFile0" "r" ]
+  set fileData011 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TextPadFile1 ]
+set fileData012 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TextPadFile1" "r" ]
+  set fileData012 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TextPadFile2 ]
+set fileData013 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TextPadFile2" "r" ]
+  set fileData013 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TextPadFile3 ]
+set fileData014 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TextPadFile3" "r" ]
+  set fileData014 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $TextPadFile4 ]
+set fileData015 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$TextPadFile4" "r" ]
+  set fileData015 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile0 ]
+set fileData016 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile0" "r" ]
+  set fileData016 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile1 ]
+set fileData017 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile1" "r" ]
+  set fileData017 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile2 ]
+set fileData018 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile2" "r" ]
+  set fileData018 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile3 ]
+set fileData019 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile3" "r" ]
+  set fileData019 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $WritePadFile4 ]
+set fileData020 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$WritePadFile4" "r" ]
+  set fileData020 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ProjectPadFile0 ]
+set fileData021 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ProjectPadFile0" "r" ]
+  set fileData021 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ProjectPadFile1 ]
+set fileData022 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ProjectPadFile1" "r" ]
+  set fileData022 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ProjectPadFile2 ]
+set fileData023 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ProjectPadFile2" "r" ]
+  set fileData023 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ProjectPadFile3 ]
+set fileData024 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ProjectPadFile3" "r" ]
+  set fileData024 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $ProjectPadFile4 ]
+set fileData025 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$ProjectPadFile4" "r" ]
+  set fileData025 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $DevelopPadFile0 ]
+set fileData026 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$DevelopPadFile0" "r" ]
+  set fileData026 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $DevelopPadFile1 ]
+set fileData027 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$DevelopPadFile1" "r" ]
+  set fileData027 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $DevelopPadFile2 ]
+set fileData028 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$DevelopPadFile2" "r" ]
+  set fileData028 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $DevelopPadFile3 ]
+set fileData029 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$DevelopPadFile3" "r" ]
+  set fileData029 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+set isResourcePresent [ file exists $DevelopPadFile4 ]
+set fileData030 {}
+
+if { $isResourcePresent == 1 } {
+  set fileHandle [ open "$DevelopPadFile4" "r" ]
+  set fileData030 [ string trimright [ read $fileHandle ] \n ]
+  close $fileHandle
+}
+
+### CHK1 ## End # SXM #### File Loading #############
+
+### CHK2 ## Start # SXM #### Program Initializing ##########
+
+set qLSearchString {}
+set qLSearchSIndex {1.0}
+set qLSearchSettings {$qLSearchIndex $qLSearchSIndex}
+
+set noteSearchString {}
+set foundFileToLoad {}
+
+# {R,A,G}STLBL: {Red,Amber,Green} Status Label
+set RSTLBL {#FF0000}
+set ASTLBL {#FFAA44}
+set GSTLBL {#00FF00}
+
+# {RGB / RFG - General RoughPad BG / FG
+lassign {{#FFFFFF} {#000000} {#7F7F7F} {#FFFFFF}} RBG RFG SRBG SRFG
+# {JGB / JFG - General JotPad BG / FG
+lassign {{#EFEFEF} {#000000} {#6F6F6F} {#FFFFFF}} JBG JFG SJBG SJFG
+# {TGB / TFG - General TextPad BG / FG
+lassign {{#DFDFDF} {#000000} {#5F5F5F} {#FFFFFF}} TBG TFG STBG STFG
+# {WGB / WFG - General WritePad BG / FG
+lassign {{#CFCFCF} {#000000} {#4F4F4F} {#FFFFFF}} WBG WFG SWBG SWFG
+# {PGB / PFG - General ProjectsPad BG / FG
+lassign {{#BFBFBF} {#000000} {#3F3F3F} {#FFFFFF}} PBG PFG SPBG SPFG
+# {DGB / DFG - General DevelopPad BG / FG
+#lassign {{#1F2F3F} {#FFFFA0}} DBG DFG
+lassign {{#2F4760} {#FFFFA0}} DBG DFG
+# {XGB / XFG - General eXpendables BG / FG
+#lassign {{#00001F} {#FF7F00} {#FF7F00} {#00001F}} XBG XFG SXBG SXFG
+lassign {{#003F7F} {#FFFFFF} {#FF7F00} {#00001F}} XBG XFG SXBG SXFG
+# {IGB / IFG - Inverse RoughPad BG / FG
+lassign {{#000000} {#FFFFFF}} IBG IFG
+
+### CHK3 ###### SXM #### Font Styling #############
+# font create generalFont -family "Liberation Sans" -size 8
+# font create generalFont -family "Noto Sans" -size 10
+# font create generalFont -family "Noto Mono" -size 8
+# option add *font generalFont
+### CHK3  End # SXM #### Font Styling #############
+
+
+### CHK4 # SXM # E X P E R I M E N T A L #############
+# set nw [winfo width .tabBookRough]
+# set tc [llength [winfo children .tabBookRough]]
+# puts "$nw $tc"
+# ttk::style configure TNotebook.Tab -width [expr {$nw/6/$tc}]
+# ttk::style configure TNotebook.Tab -width [expr {$nw/6/$tc}]
+### CHK4 # SXM # E X P E R I M E N T A L #############
+
+#ttk::style configure TNotebook -background #00FFFF
+#ttk::style configure TNotebook -darkcolor #00FFFF
+#ttk::style configure TNotebook -bordercolor #0000FF
+
+# ttk::style configure TNotebook.Tab -font generalFont
+ttk::style configure TNotebook.Tab -width 64 
+#ttk::style configure TNotebook.Tab -foreground #FF00FF
+ttk::style configure TNotebook.Tab -foreground #1F002F
+ttk::style configure TNotebook.Tab -anchor center
+
+ttk::notebook .categoryBook
+
+.categoryBook add [ frame .frmR -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Rough"
+.categoryBook add [ frame .frmJ -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Jot"
+.categoryBook add [ frame .frmT -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Text"
+.categoryBook add [ frame .frmW -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Write"
+.categoryBook add [ frame .frmP -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Projects"
+.categoryBook add [ frame .frmD -relief sunken -border 1 -padx 2 -pady 2 ]  -text "Develop"
+.categoryBook add [ frame .frmNS -relief sunken -border 1 -padx 2 -pady 2 ] -text "Note Search"
+.categoryBook add [ frame .frmQL -relief sunken -border 1 -padx 2 -pady 2 ] -text "Quick Load"
+.categoryBook add [ frame .frmX -relief sunken -border 1 -padx 2 -pady 2 ]  -text "eXpend"
+# .categoryBook tab 1 -state disabled
+.categoryBook select 6
+
+ttk::notebook .tabBookRough
+ttk::notebook .tabBookJot
+ttk::notebook .tabBookText
+ttk::notebook .tabBookWrite
+ttk::notebook .tabBookProjects
+ttk::notebook .tabBookDevelopment
+ttk::notebook .tabBookExpendables
+
+#ttk::style configure .tabBookRough.Tab -font generalFont -width 99 
+
+ttk::label .statusLabel -text "No outstanding data to be committed" -background $ASTLBL -relief ridge
+
+.tabBookRough add [ frame .frmApp001 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "RoughPad"
+.tabBookRough add [ frame .frmApp002 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "ScrapPad"
+.tabBookRough add [ frame .frmApp003 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "JunkPad"
+.tabBookRough add [ frame .frmApp004 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "AuxPad"
+.tabBookRough add [ frame .frmApp005 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "TempPad"
+.tabBookJot add [ frame .frmApp006 -relief sunken -border 1 -padx 2 -pady 2 ] -text         "Jot Pad #0"
+.tabBookJot add [ frame .frmApp007 -relief sunken -border 1 -padx 2 -pady 2 ] -text         "Jot Pad #1"
+.tabBookJot add [ frame .frmApp008 -relief sunken -border 1 -padx 2 -pady 2 ] -text         "Jot Pad #2"
+.tabBookJot add [ frame .frmApp009 -relief sunken -border 1 -padx 2 -pady 2 ] -text         "Jot Pad #3"
+.tabBookJot add [ frame .frmApp010 -relief sunken -border 1 -padx 2 -pady 2 ] -text         "Jot Pad #4"
+.tabBookText add [ frame .frmApp011 -relief sunken -border 1 -padx 2 -pady 2 ] -text        "Text Pad #0"
+.tabBookText add [ frame .frmApp012 -relief sunken -border 1 -padx 2 -pady 2 ] -text        "Text Pad #1"
+.tabBookText add [ frame .frmApp013 -relief sunken -border 1 -padx 2 -pady 2 ] -text        "Text Pad #2"
+.tabBookText add [ frame .frmApp014 -relief sunken -border 1 -padx 2 -pady 2 ] -text        "Text Pad #3"
+.tabBookText add [ frame .frmApp015 -relief sunken -border 1 -padx 2 -pady 2 ] -text        "Text Pad #4"
+.tabBookWrite add [ frame .frmApp016 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "Write Pad #0"
+.tabBookWrite add [ frame .frmApp017 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "Write Pad #1"
+.tabBookWrite add [ frame .frmApp018 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "Write Pad #2"
+.tabBookWrite add [ frame .frmApp019 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "Write Pad #3"
+.tabBookWrite add [ frame .frmApp020 -relief sunken -border 1 -padx 2 -pady 2 ] -text       "Write Pad #4"
+.tabBookProjects add [ frame .frmApp021 -relief sunken -border 1 -padx 2 -pady 2 ] -text    "Project #0"
+.tabBookProjects add [ frame .frmApp022 -relief sunken -border 1 -padx 2 -pady 2 ] -text    "Project #1"
+.tabBookProjects add [ frame .frmApp023 -relief sunken -border 1 -padx 2 -pady 2 ] -text    "Project #2"
+.tabBookProjects add [ frame .frmApp024 -relief sunken -border 1 -padx 2 -pady 2 ] -text    "Project #3"
+.tabBookProjects add [ frame .frmApp025 -relief sunken -border 1 -padx 2 -pady 2 ] -text    "Project #4"
+.tabBookDevelopment add [ frame .frmApp026 -relief sunken -border 1 -padx 2 -pady 2 ] -text "Development #0"
+.tabBookDevelopment add [ frame .frmApp027 -relief sunken -border 1 -padx 2 -pady 2 ] -text "Development #1"
+.tabBookDevelopment add [ frame .frmApp028 -relief sunken -border 1 -padx 2 -pady 2 ] -text "Development #2"
+.tabBookDevelopment add [ frame .frmApp029 -relief sunken -border 1 -padx 2 -pady 2 ] -text "Development #3"
+.tabBookDevelopment add [ frame .frmApp030 -relief sunken -border 1 -padx 2 -pady 2 ] -text "Development #4"
+.tabBookExpendables add [ frame .frmApp210 -relief sunken -border 1 -padx 2 -pady 2 ] -text "eXpendable #0"
+.tabBookExpendables add [ frame .frmApp211 -relief sunken -border 1 -padx 2 -pady 2 ] -text "eXpendable #1"
+.tabBookExpendables add [ frame .frmApp212 -relief sunken -border 1 -padx 2 -pady 2 ] -text "eXpendable #2"
+.tabBookExpendables add [ frame .frmApp213 -relief sunken -border 1 -padx 2 -pady 2 ] -text "eXpendable #3"
+.tabBookExpendables add [ frame .frmApp214 -relief sunken -border 1 -padx 2 -pady 2 ] -text "eXpendable #4"
+
+ttk::notebook::enableTraversal .categoryBook
+
+ttk::notebook::enableTraversal .tabBookRough
+ttk::notebook::enableTraversal .tabBookJot
+ttk::notebook::enableTraversal .tabBookText
+ttk::notebook::enableTraversal .tabBookWrite
+ttk::notebook::enableTraversal .tabBookProjects
+ttk::notebook::enableTraversal .tabBookDevelopment
+ttk::notebook::enableTraversal .tabBookExpendables
+
+frame .frmAppBottom -relief sunken -border 1 -padx 2 -pady 2
+
+# {IBG / IFG - Inverse RoughPad BG / FG
+
+#text .textData001 -undo true -maxundo 0 -autoseparators true -bg #FFFFFF -fg #3F3F3F -wrap none -xscrollcommand { .hScrollBar001 set } -yscrollcommand { .vScrollBar001 set } -blockcursor true -cursor pencil -width 80 -height 24 -exportselection true
+#lassign {{#FFFFFF} {#3F3F3F}} BTD001 FTD001
+#foreach { BTD001 FTD001 } { $RBG $RFG } break ##### NO GOOD!!! #####
+# {RBG / RFG - General RoughPad BG / FG
+lassign [list $RBG $RFG $SRBG $SRFG] B F S0 S1
+text .textData001 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar001 set } -yscrollcommand { .vScrollBar001 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar001 -orient vertical -command { .textData001 yview }
+ttk::scrollbar .hScrollBar001 -orient horizontal -command { .textData001 xview }
+
+text .textData002 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar002 set } -yscrollcommand { .vScrollBar002 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar002 -orient vertical -command { .textData002 yview }
+ttk::scrollbar .hScrollBar002 -orient horizontal -command { .textData002 xview }
+
+text .textData003 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar003 set } -yscrollcommand { .vScrollBar003 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar003 -orient vertical -command { .textData003 yview }
+ttk::scrollbar .hScrollBar003 -orient horizontal -command { .textData003 xview }
+
+text .textData004 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar004 set } -yscrollcommand { .vScrollBar004 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar004 -orient vertical -command { .textData004 yview }
+ttk::scrollbar .hScrollBar004 -orient horizontal -command { .textData004 xview }
+
+text .textData005 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar005 set } -yscrollcommand { .vScrollBar005 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar005 -orient vertical -command { .textData005 yview }
+ttk::scrollbar .hScrollBar005 -orient horizontal -command { .textData005 xview }
+
+#lassign {{#FDFFFD} {#3F3F3F}} BTD001 FTD001
+# {JBG / JFG - General JotPad BG / FG 
+lassign [list $JBG $JFG $SJBG $SJFG] B F S0 S1
+text .textData006 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar006 set } -yscrollcommand { .vScrollBar006 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar006 -orient vertical -command { .textData006 yview }
+ttk::scrollbar .hScrollBar006 -orient horizontal -command { .textData006 xview }
+
+text .textData007 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar007 set } -yscrollcommand { .vScrollBar007 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar007 -orient vertical -command { .textData007 yview }
+ttk::scrollbar .hScrollBar007 -orient horizontal -command { .textData007 xview }
+
+text .textData008 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar008 set } -yscrollcommand { .vScrollBar008 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar008 -orient vertical -command { .textData008 yview }
+ttk::scrollbar .hScrollBar008 -orient horizontal -command { .textData008 xview }
+
+text .textData009 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar009 set } -yscrollcommand { .vScrollBar009 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar009 -orient vertical -command { .textData009 yview }
+ttk::scrollbar .hScrollBar009 -orient horizontal -command { .textData009 xview }
+
+text .textData010 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar010 set } -yscrollcommand { .vScrollBar010 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar010 -orient vertical -command { .textData010 yview }
+ttk::scrollbar .hScrollBar010 -orient horizontal -command { .textData010 xview }
+
+#lassign {{#EFF9EF} {#3F3F3F}} BTD001 FTD001
+# {TBG / TFG - General TextPad BG / FG
+lassign [list $TBG $TFG $STBG $STFG] B F S0 S1
+text .textData011 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap none -xscrollcommand { .hScrollBar011 set } -yscrollcommand { .vScrollBar011 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar011 -orient vertical -command { .textData011 yview }
+ttk::scrollbar .hScrollBar011 -orient horizontal -command { .textData011 xview }
+
+text .textData012 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar012 set } -yscrollcommand { .vScrollBar012 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar012 -orient vertical -command { .textData012 yview }
+ttk::scrollbar .hScrollBar012 -orient horizontal -command { .textData012 xview }
+
+text .textData013 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar013 set } -yscrollcommand { .vScrollBar013 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar013 -orient vertical -command { .textData013 yview }
+ttk::scrollbar .hScrollBar013 -orient horizontal -command { .textData013 xview }
+
+text .textData014 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar014 set } -yscrollcommand { .vScrollBar014 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar014 -orient vertical -command { .textData014 yview }
+ttk::scrollbar .hScrollBar014 -orient horizontal -command { .textData014 xview }
+
+text .textData015 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar015 set } -yscrollcommand { .vScrollBar015 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar015 -orient vertical -command { .textData015 yview }
+ttk::scrollbar .hScrollBar015 -orient horizontal -command { .textData015 xview }
+
+#lassign {{#FFFFDF} {#3F3F3F}} BTD001 FTD001
+# {WBG / WFG - General WritePad BG / FG
+lassign [list $WBG $WFG $SWBG $SWFG] B F S0 S1
+text .textData016 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar016 set } -yscrollcommand { .vScrollBar016 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar016 -orient vertical -command { .textData016 yview }
+ttk::scrollbar .hScrollBar016 -orient horizontal -command { .textData016 xview }
+
+text .textData017 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar017 set } -yscrollcommand { .vScrollBar017 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar017 -orient vertical -command { .textData017 yview }
+ttk::scrollbar .hScrollBar017 -orient horizontal -command { .textData017 xview }
+
+text .textData018 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar018 set } -yscrollcommand { .vScrollBar018 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar018 -orient vertical -command { .textData018 yview }
+ttk::scrollbar .hScrollBar018 -orient horizontal -command { .textData018 xview }
+
+text .textData019 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar019 set } -yscrollcommand { .vScrollBar019 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar019 -orient vertical -command { .textData019 yview }
+ttk::scrollbar .hScrollBar019 -orient horizontal -command { .textData019 xview }
+
+text .textData020 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar020 set } -yscrollcommand { .vScrollBar020 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar020 -orient vertical -command { .textData020 yview }
+ttk::scrollbar .hScrollBar020 -orient horizontal -command { .textData020 xview }
+
+#lassign {{#C4D2CF} {#3F3F3F}} BTD001 FTD001
+#lassign {{#CFD9CF} {#3F3F3F}} BTD001 FTD001
+# {PBG / PFG - General ProjectsPad BG / FG
+#lassign {{#C4D2CF} {#3F3F3F}} BTD001 FTD001
+lassign [list $PBG $PFG $SPBG $SPFG] B F S0 S1
+text .textData021 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar021 set } -yscrollcommand { .vScrollBar021 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar021 -orient vertical -command { .textData021 yview }
+ttk::scrollbar .hScrollBar021 -orient horizontal -command { .textData021 xview }
+
+text .textData022 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar022 set } -yscrollcommand { .vScrollBar022 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar022 -orient vertical -command { .textData022 yview }
+ttk::scrollbar .hScrollBar022 -orient horizontal -command { .textData022 xview }
+
+text .textData023 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar023 set } -yscrollcommand { .vScrollBar023 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar023 -orient vertical -command { .textData023 yview }
+ttk::scrollbar .hScrollBar023 -orient horizontal -command { .textData023 xview }
+
+text .textData024 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar024 set } -yscrollcommand { .vScrollBar024 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar024 -orient vertical -command { .textData024 yview }
+ttk::scrollbar .hScrollBar024 -orient horizontal -command { .textData024 xview }
+
+text .textData025 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar025 set } -yscrollcommand { .vScrollBar025 set } -width 80 -height 24 -exportselection true
+ttk::scrollbar .vScrollBar025 -orient vertical -command { .textData025 yview }
+ttk::scrollbar .hScrollBar025 -orient horizontal -command { .textData025 xview }
+
+#lassign {{#1F2F3F} {#FFFFFF}} DTHEMEBG DTHEMEFG
+# {DBG / DFG - General DevelopPad BG / FG
+lassign [list $DBG $DFG] B F
+set F {#FFFF00}
+text .textData026 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $F -selectforeground $B -wrap word -xscrollcommand { .hScrollBar026 set } -yscrollcommand { .vScrollBar026 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar026 -orient vertical -command { .textData026 yview }
+ttk::scrollbar .hScrollBar026 -orient horizontal -command { .textData026 xview }
+
+set F {#00FF00}
+text .textData027 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $F -selectforeground $B -wrap word -xscrollcommand { .hScrollBar027 set } -yscrollcommand { .vScrollBar027 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar027 -orient vertical -command { .textData027 yview }
+ttk::scrollbar .hScrollBar027 -orient horizontal -command { .textData027 xview }
+
+set F {#00FFFF}
+text .textData028 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $F -selectforeground $B -wrap word -xscrollcommand { .hScrollBar028 set } -yscrollcommand { .vScrollBar028 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar028 -orient vertical -command { .textData028 yview }
+ttk::scrollbar .hScrollBar028 -orient horizontal -command { .textData028 xview }
+
+set F {#FF0000}
+text .textData029 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $F -selectforeground $B -wrap word -xscrollcommand { .hScrollBar029 set } -yscrollcommand { .vScrollBar029 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar029 -orient vertical -command { .textData029 yview }
+ttk::scrollbar .hScrollBar029 -orient horizontal -command { .textData029 xview }
+
+set F {#FF00FF}
+text .textData030 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $F -selectforeground $B -wrap word -xscrollcommand { .hScrollBar030 set } -yscrollcommand { .vScrollBar030 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar030 -orient vertical -command { .textData030 yview }
+ttk::scrollbar .hScrollBar030 -orient horizontal -command { .textData030 xview }
+
+set FZTHEMEB {#005050}; .frmNS configure -bg $FZTHEMEB 
+entry .searchEntry -textvar noteSearchString -width 71 \
+      -highlightbackground $FZTHEMEB -highlightcolor $FZTHEMEB \
+      -selectbackground $FZTHEMEB -selectforeground {#FFFFFF}
+button .butNoteSearch -cursor spider -text "Search" -width 6 -command { buttonNoteSearch } \
+      -activebackground $FZTHEMEB -activeforeground {#FFFFFF} \
+      -highlightbackground $FZTHEMEB -highlightcolor $FZTHEMEB
+button .butNSClear -cursor pirate -text "Clear" -width 6 -command { buttonNoteSClear } \
+      -activebackground $FZTHEMEB -activeforeground {#FFFFFF} \
+      -highlightbackground $FZTHEMEB -highlightcolor $FZTHEMEB
+text .searchResults -wrap none -width 80 -height 24 -exportselection true -state disabled \
+      -highlightbackground $FZTHEMEB -highlightcolor $FZTHEMEB \
+      -selectbackground $FZTHEMEB -selectforeground {#FFFFFF} \
+      -xscrollcommand { .hScrollBar201 set } -yscrollcommand { .vScrollBar201 set }
+ttk::scrollbar .vScrollBar201 -orient vertical -command { .searchResults yview }
+ttk::scrollbar .hScrollBar201 -orient horizontal -command { .searchResults xview }
+
+set FQTHEMEC {#440088}
+.frmQL configure -bg $FQTHEMEC 
+entry .foundFileLoadEntry -textvar foundFileToLoad -width 71 \
+      -highlightbackground $FQTHEMEC -highlightcolor $FQTHEMEC \
+      -selectbackground $FQTHEMEC -selectforeground {#FFFFFF}
+button .butFileLoad -cursor sailboat -text "Load" -width 6 \
+      -highlightbackground $FQTHEMEC -highlightcolor $FQTHEMEC \
+      -activebackground $FQTHEMEC -activeforeground {#FFFFFF} \
+  -command {
+    set foundFileToLoad [ string trimright $foundFileToLoad ]
+    if { [ file exists $foundFileToLoad ] } {
+      .fileContents configure -state normal
+      .fileContents delete 1.0 end
+      loadFile $foundFileToLoad .fileContents
+      .fileContents configure -state disabled
+    } else {
+      set foundFileToLoad {}
+      .fileContents configure -state normal
+      .fileContents delete 1.0 end
+      .fileContents configure -state disabled
+    }
+  }
+button .butFLClear -cursor pirate -text "Clear" -width 6 \
+      -highlightbackground $FQTHEMEC -highlightcolor $FQTHEMEC \
+      -activebackground $FQTHEMEC -activeforeground {#FFFFFF} \
+  -command {
+    set foundFileToLoad {}
+    set foundFileToLoad {}
+    .fileContents configure -state normal
+    .fileContents delete 1.0 end
+    .fileContents configure -state disabled
+  }
+text .fileContents -wrap none -width 80 -height 24 -exportselection true -state disabled \
+      -highlightbackground $FQTHEMEC -highlightcolor $FQTHEMEC \
+      -selectbackground $FQTHEMEC -selectforeground {#FFFFFF} \
+      -xscrollcommand { .hScrollBar202 set } -yscrollcommand { .vScrollBar202 set }
+ttk::scrollbar .vScrollBar202 -orient vertical -command { .fileContents yview }
+ttk::scrollbar .hScrollBar202 -orient horizontal -command { .fileContents xview }
+
+#lassign {{#FFF7F7} {#3F3F3F}} XTHEMEBG XTHEMEFG
+# {XBG / XFG - General eXpendables BG / FG
+lassign [list $XBG $XFG $SXBG $SXFG] B F S0 S1
+text .textData210 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar210 set } -yscrollcommand { .vScrollBar210 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar210 -orient vertical -command { .textData210 yview }
+ttk::scrollbar .hScrollBar210 -orient horizontal -command { .textData210 xview }
+
+text .textData211 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar211 set } -yscrollcommand { .vScrollBar211 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar211 -orient vertical -command { .textData211 yview }
+ttk::scrollbar .hScrollBar211 -orient horizontal -command { .textData211 xview }
+
+text .textData212 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar212 set } -yscrollcommand { .vScrollBar212 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar212 -orient vertical -command { .textData212 yview }
+ttk::scrollbar .hScrollBar212 -orient horizontal -command { .textData212 xview }
+
+text .textData213 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar213 set } -yscrollcommand { .vScrollBar213 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar213 -orient vertical -command { .textData213 yview }
+ttk::scrollbar .hScrollBar213 -orient horizontal -command { .textData213 xview }
+
+text .textData214 -undo true -maxundo 0 -autoseparators true -bg $B -fg $F -selectbackground $S0 -selectforeground $S1 -wrap word -xscrollcommand { .hScrollBar214 set } -yscrollcommand { .vScrollBar214 set } -width 80 -height 24 -exportselection true -blockcursor true
+ttk::scrollbar .vScrollBar214 -orient vertical -command { .textData214 yview }
+ttk::scrollbar .hScrollBar214 -orient horizontal -command { .textData214 xview }
+
+#ttk::button .butClear -cursor pirate -text "Clear" -command { buttonClear } -width 8
+#ttk::button .butCommit -cursor pencil -text "Commit" -command { buttonCommitData } -width 8
+#ttk::button .butMinimize -text "Iconify" -command { buttonCommitData; wm withdraw . ; wm iconify . } -width 8
+#ttk::button .butBackup -cursor pencil -text {Backup Only} -command { buttonBackupData } -width 8
+#ttk::button .butCBackup -cursor pencil -text {Commit & Backup} -command { buttonCommitData; buttonBackupData } -width 8
+#ttk::button .butAbout -cursor spider -text "About" -command { programAbout } -width 8
+#ttk::button .butExit -cursor shuttle -text "Exit" -command { buttonCommitData; buttonExit }  -width 8
+
+set buttonWidth 24
+lassign {{#FFD9D9} {#000000} {#7F0000} {#FFFF00}} BG FG ABG AFG
+button .butClear -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor watch -text "Clear" -command { buttonClear } -width $buttonWidth -state disabled
+
+lassign {{#D9FFD9} {#000000} {#007F00} {#FFFFFF}} BG FG ABG AFG
+button .butCommit -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor pencil -text "Commit" -command { buttonCommitData } -width $buttonWidth
+
+#lassign {{#FFD9D9} {#000000} {#7F0000} {#FFFF00}} BG FG ABG AFG
+#ttk::button .butMinimize -text "Iconify" -command { buttonCommitData; wm withdraw . ; wm iconify . } -width $buttonWidth
+
+lassign {{#D9FFFF} {#000000} {#007F7F} {#000000}} BG FG ABG AFG
+button .butBackup -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor pencil -text {Backup Only} -command { buttonBackupData } -width $buttonWidth
+
+lassign {{#D9D9FF} {#000000} {#00007F} {#FFFF00}} BG FG ABG AFG
+button .butCBackup -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor pencil -text {Commit & Backup} -command { buttonCommitData; buttonBackupData } -width $buttonWidth
+
+lassign {{#D9D9D9} {#000000} {#7F7F7F} {#FFFFFF}} BG FG ABG AFG
+button .butAbout -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor spider -text "About" -command { programAbout } -width $buttonWidth
+
+lassign {{#EFEFEF} {#000000} {#000000} {#FFFFFF}} BG FG ABG AFG
+button .butExit -bg $BG -fg $FG -activebackground $ABG -activeforeground $AFG -cursor shuttle -text "Exit" -command { buttonCommitData; buttonExit }  -width $buttonWidth
+
+#.butMinimize configure -state disabled
+
+.textData001 insert end $fileData001
+.textData002 insert end $fileData002
+.textData003 insert end $fileData003
+.textData004 insert end $fileData004
+.textData005 insert end $fileData005
+.textData006 insert end $fileData006
+.textData007 insert end $fileData007
+.textData008 insert end $fileData008
+.textData009 insert end $fileData009
+.textData010 insert end $fileData010
+.textData011 insert end $fileData011
+.textData012 insert end $fileData012
+.textData013 insert end $fileData013
+.textData014 insert end $fileData014
+.textData015 insert end $fileData015
+.textData016 insert end $fileData016
+.textData017 insert end $fileData017
+.textData018 insert end $fileData018
+.textData019 insert end $fileData019
+.textData020 insert end $fileData020
+.textData021 insert end $fileData021
+.textData022 insert end $fileData022
+.textData023 insert end $fileData023
+.textData024 insert end $fileData024
+.textData025 insert end $fileData025
+.textData026 insert end $fileData026
+.textData027 insert end $fileData027
+.textData028 insert end $fileData028
+.textData029 insert end $fileData029
+.textData030 insert end $fileData030
+
+bind .textData001 <3> {popupMenu .appMenu001 %x %y}
+bind .textData002 <3> {popupMenu .appMenu002 %x %y}
+bind .textData003 <3> {popupMenu .appMenu003 %x %y}
+bind .textData004 <3> {popupMenu .appMenu004 %x %y}
+bind .textData005 <3> {popupMenu .appMenu005 %x %y}
+bind .textData006 <3> {popupMenu .appMenu006 %x %y}
+bind .textData007 <3> {popupMenu .appMenu007 %x %y}
+bind .textData008 <3> {popupMenu .appMenu008 %x %y}
+bind .textData009 <3> {popupMenu .appMenu009 %x %y}
+bind .textData010 <3> {popupMenu .appMenu010 %x %y}
+bind .textData011 <3> {popupMenu .appMenu011 %x %y}
+bind .textData012 <3> {popupMenu .appMenu012 %x %y}
+bind .textData013 <3> {popupMenu .appMenu013 %x %y}
+bind .textData014 <3> {popupMenu .appMenu014 %x %y}
+bind .textData015 <3> {popupMenu .appMenu015 %x %y}
+bind .textData016 <3> {popupMenu .appMenu016 %x %y}
+bind .textData017 <3> {popupMenu .appMenu017 %x %y}
+bind .textData018 <3> {popupMenu .appMenu018 %x %y}
+bind .textData019 <3> {popupMenu .appMenu019 %x %y}
+bind .textData020 <3> {popupMenu .appMenu020 %x %y}
+bind .textData021 <3> {popupMenu .appMenu021 %x %y}
+bind .textData022 <3> {popupMenu .appMenu022 %x %y}
+bind .textData023 <3> {popupMenu .appMenu023 %x %y}
+bind .textData024 <3> {popupMenu .appMenu024 %x %y}
+bind .textData025 <3> {popupMenu .appMenu025 %x %y}
+bind .textData026 <3> {popupMenu .appMenu026 %x %y}
+bind .textData027 <3> {popupMenu .appMenu027 %x %y}
+bind .textData028 <3> {popupMenu .appMenu028 %x %y}
+bind .textData029 <3> {popupMenu .appMenu029 %x %y}
+bind .textData030 <3> {popupMenu .appMenu030 %x %y}
+bind .textData210 <3> {popupMenu .appMenu210 %x %y}
+bind .textData211 <3> {popupMenu .appMenu211 %x %y}
+bind .textData212 <3> {popupMenu .appMenu212 %x %y}
+bind .textData213 <3> {popupMenu .appMenu213 %x %y}
+bind .textData214 <3> {popupMenu .appMenu214 %x %y}
+
+bind .textData001 <Control-space> { .textData001 insert insert {} }
+bind .textData002 <Control-space> { .textData002 insert insert {} }
+bind .textData003 <Control-space> { .textData003 insert insert {} }
+bind .textData004 <Control-space> { .textData004 insert insert {} }
+bind .textData005 <Control-space> { .textData005 insert insert {} }
+bind .textData006 <Control-space> { .textData006 insert insert {} }
+bind .textData007 <Control-space> { .textData007 insert insert {} }
+bind .textData008 <Control-space> { .textData008 insert insert {} }
+bind .textData009 <Control-space> { .textData009 insert insert {} }
+bind .textData010 <Control-space> { .textData010 insert insert {} }
+bind .textData011 <Control-space> { .textData011 insert insert {} }
+bind .textData012 <Control-space> { .textData012 insert insert {} }
+bind .textData013 <Control-space> { .textData013 insert insert {} }
+bind .textData014 <Control-space> { .textData014 insert insert {} }
+bind .textData015 <Control-space> { .textData015 insert insert {} }
+bind .textData016 <Control-space> { .textData016 insert insert {} }
+bind .textData017 <Control-space> { .textData017 insert insert {} }
+bind .textData018 <Control-space> { .textData018 insert insert {} }
+bind .textData019 <Control-space> { .textData019 insert insert {} }
+bind .textData020 <Control-space> { .textData020 insert insert {} }
+bind .textData021 <Control-space> { .textData021 insert insert {} }
+bind .textData022 <Control-space> { .textData022 insert insert {} }
+bind .textData023 <Control-space> { .textData023 insert insert {} }
+bind .textData024 <Control-space> { .textData024 insert insert {} }
+bind .textData025 <Control-space> { .textData025 insert insert {} }
+bind .textData026 <Control-space> { .textData026 insert insert {} }
+bind .textData027 <Control-space> { .textData027 insert insert {} }
+bind .textData028 <Control-space> { .textData028 insert insert {} }
+bind .textData029 <Control-space> { .textData029 insert insert {} }
+bind .textData030 <Control-space> { .textData030 insert insert {} }
+
+bind .textData210 <Alt-r> { set revText [string reverse [ string trimright [ .textData210 get 1.0 end] ] ]; .textData210 delete 1.0 end; .textData210 insert 1.0 $revText }
+bind .textData211 <Alt-r> { set revText [string reverse [ string trimright [ .textData211 get 1.0 end] ] ]; .textData211 delete 1.0 end; .textData211 insert 1.0 $revText }
+bind .textData212 <Alt-r> { set revText [string reverse [ string trimright [ .textData212 get 1.0 end] ] ]; .textData212 delete 1.0 end; .textData212 insert 1.0 $revText }
+bind .textData213 <Alt-r> { set revText [string reverse [ string trimright [ .textData213 get 1.0 end] ] ]; .textData213 delete 1.0 end; .textData213 insert 1.0 $revText }
+bind .textData214 <Alt-r> { set revText [string reverse [ string trimright [ .textData214 get 1.0 end] ] ]; .textData214 delete 1.0 end; .textData214 insert 1.0 $revText }
+
+bind .textData001 <Alt-a> { .textData001 tag add sel 1.0 end }
+bind .textData002 <Alt-a> { .textData002 tag add sel 1.0 end }
+bind .textData003 <Alt-a> { .textData003 tag add sel 1.0 end }
+bind .textData004 <Alt-a> { .textData004 tag add sel 1.0 end }
+bind .textData005 <Alt-a> { .textData005 tag add sel 1.0 end }
+bind .textData006 <Alt-a> { .textData006 tag add sel 1.0 end }
+bind .textData007 <Alt-a> { .textData007 tag add sel 1.0 end }
+bind .textData008 <Alt-a> { .textData008 tag add sel 1.0 end }
+bind .textData009 <Alt-a> { .textData009 tag add sel 1.0 end }
+bind .textData010 <Alt-a> { .textData010 tag add sel 1.0 end }
+bind .textData011 <Alt-a> { .textData011 tag add sel 1.0 end }
+bind .textData012 <Alt-a> { .textData012 tag add sel 1.0 end }
+bind .textData013 <Alt-a> { .textData013 tag add sel 1.0 end }
+bind .textData014 <Alt-a> { .textData014 tag add sel 1.0 end }
+bind .textData015 <Alt-a> { .textData015 tag add sel 1.0 end }
+bind .textData016 <Alt-a> { .textData016 tag add sel 1.0 end }
+bind .textData017 <Alt-a> { .textData017 tag add sel 1.0 end }
+bind .textData018 <Alt-a> { .textData018 tag add sel 1.0 end }
+bind .textData019 <Alt-a> { .textData019 tag add sel 1.0 end }
+bind .textData020 <Alt-a> { .textData020 tag add sel 1.0 end }
+bind .textData021 <Alt-a> { .textData021 tag add sel 1.0 end }
+bind .textData022 <Alt-a> { .textData022 tag add sel 1.0 end }
+bind .textData023 <Alt-a> { .textData023 tag add sel 1.0 end }
+bind .textData024 <Alt-a> { .textData024 tag add sel 1.0 end }
+bind .textData025 <Alt-a> { .textData025 tag add sel 1.0 end }
+bind .textData026 <Alt-a> { .textData026 tag add sel 1.0 end }
+bind .textData027 <Alt-a> { .textData027 tag add sel 1.0 end }
+bind .textData028 <Alt-a> { .textData028 tag add sel 1.0 end }
+bind .textData029 <Alt-a> { .textData029 tag add sel 1.0 end }
+bind .textData030 <Alt-a> { .textData030 tag add sel 1.0 end }
+bind .textData210 <Alt-a> { .textData210 tag add sel 1.0 end }
+bind .textData211 <Alt-a> { .textData211 tag add sel 1.0 end }
+bind .textData212 <Alt-a> { .textData212 tag add sel 1.0 end }
+bind .textData213 <Alt-a> { .textData213 tag add sel 1.0 end }
+bind .textData214 <Alt-a> { .textData214 tag add sel 1.0 end }
+
+bind .searchEntry <Alt-a> { .searchEntry selection range 0 end }
+bind .searchResults <Alt-a> { .searchResults tag add sel 1.0 end }
+
+bind .foundFileLoadEntry <Alt-a> { .foundFileLoadEntry selection range 0 end }
+bind .fileContents <Alt-a> { .fileContents tag add sel 1.0 end }
+bind .fileContents <Control-f> { qLContentsSearchInit }
+bind .fileContents <F3> { qLContentsSearch }
+
+#bind .textData <Mod2-a> { .textData tag add sel 1.0 end }
+
+bind .textData001 <Alt-s> { buttonCommitData }
+bind .textData002 <Alt-s> { buttonCommitData }
+bind .textData003 <Alt-s> { buttonCommitData }
+bind .textData004 <Alt-s> { buttonCommitData }
+bind .textData005 <Alt-s> { buttonCommitData }
+bind .textData006 <Alt-s> { buttonCommitData }
+bind .textData007 <Alt-s> { buttonCommitData }
+bind .textData008 <Alt-s> { buttonCommitData }
+bind .textData009 <Alt-s> { buttonCommitData }
+bind .textData010 <Alt-s> { buttonCommitData }
+bind .textData011 <Alt-s> { buttonCommitData }
+bind .textData012 <Alt-s> { buttonCommitData }
+bind .textData013 <Alt-s> { buttonCommitData }
+bind .textData014 <Alt-s> { buttonCommitData }
+bind .textData015 <Alt-s> { buttonCommitData }
+bind .textData016 <Alt-s> { buttonCommitData }
+bind .textData017 <Alt-s> { buttonCommitData }
+bind .textData018 <Alt-s> { buttonCommitData }
+bind .textData019 <Alt-s> { buttonCommitData }
+bind .textData020 <Alt-s> { buttonCommitData }
+bind .textData021 <Alt-s> { buttonCommitData }
+bind .textData022 <Alt-s> { buttonCommitData }
+bind .textData023 <Alt-s> { buttonCommitData }
+bind .textData024 <Alt-s> { buttonCommitData }
+bind .textData025 <Alt-s> { buttonCommitData }
+bind .textData026 <Alt-s> { buttonCommitData }
+bind .textData027 <Alt-s> { buttonCommitData }
+bind .textData028 <Alt-s> { buttonCommitData }
+bind .textData029 <Alt-s> { buttonCommitData }
+bind .textData030 <Alt-s> { buttonCommitData }
+
+### // SXM DEBUG \\ ###
+#foreach charInput $modXcluded {
+#  puts $charInput
+#}
+### \\ SXM DEBUG // ###
+
+### All keycodes below obtained with `xev`
+
+### // SXM - Original Line \\ ###
+# set modXcluded { 9 36 37 50 62 64 66 67 68 69 70 71 72 73 74 75 76 77 78 95 96 104 105 108 110 111 112 113 114 115 116 117 118 127 133 134 135 }
+### \\ SXM - Original Line // ###
+
+
+### // SXM - Modified Line \\ ###
+set modXcluded { 9 27 37 38 39 50 54 62 64 66 67 68 69 70 71 72 73 74 75 76 77 78 95 96 104 105 108 110 111 112 113 114 115 116 117 118 127 133 134 135 }
+### \\ SXM - Modified Line // ###
+
+bind TNotebook <<NotebookTabChanged>> { if { $need2Save == {off} } { .statusLabel configure -background $ASTLBL -text "No outstanding data to be committed" }; if { [.categoryBook index current] >= 6 } { .butCommit configure -state "disabled" -cursor coffee_mug; .butBackup configure -state "disabled" -cursor coffee_mug; .butCBackup configure -state "disabled" -cursor coffee_mug } else { .butCommit configure -state "normal" -cursor pencil; .butBackup configure -state "normal" -cursor pencil; .butCBackup configure -state "normal" -cursor pencil } }
+#bind TNotebook.Tab <<NotebookTabChanged>> { if { $need2Save == {off} } { .statusLabel configure -background $ASTLBL -text "No outstanding data to be committed" } }
+#bind .categoryBook <<NotebookTabChanged>> { if { $need2Save == {off} } { .statusLabel configure -background $ASTLBL -text "No outstanding data to be committed" } }
+
+bind .textData001 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData001 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData002 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData002 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData003 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData003 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData004 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData004 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData005 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData005 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData006 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData006 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData007 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData007 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData008 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData008 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData009 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData009 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData010 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData010 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData011 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData011 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData012 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData012 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData013 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData013 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData014 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData014 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData015 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData015 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData016 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData016 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData017 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData017 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData018 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData018 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData019 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData019 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData020 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData020 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData021 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData021 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData022 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData022 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData023 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData023 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData024 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData024 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData025 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData025 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData026 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData026 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData027 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData027 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData028 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData028 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData029 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData029 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .textData030 <Key> { if {[lsearch -integer $modXcluded %k] < 0} { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } } }
+
+bind .textData030 <Button-2> { if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+
+bind .searchEntry <Return> { buttonNoteSearch }
+bind .foundFileLoadEntry <Return> { 
+  set foundFileToLoad [ string trimright $foundFileToLoad ]
+  if { [ file exists $foundFileToLoad ] } {
+    .fileContents configure -state normal
+    .fileContents delete 1.0 end
+    loadFile $foundFileToLoad .fileContents
+    .fileContents configure -state disabled
+  } else {
+    set foundFileToLoad {}
+    .fileContents configure -state normal
+    .fileContents delete 1.0 end
+    .fileContents configure -state disabled
+  }
+}
+
+#bind . <Key> { puts %k }
+
+#----------------------------------------------------------------------------------
+
+set fileTypes {
+	{{RoughPad Files} {.rpad}}
+	{{Text Files} {.txt}}
+	{{All Files} {*}}
+}
+
+menu .appMenu001 -tearoff 0
+.appMenu001 add cascade -label "File" -underline 0 -menu [menu .appMenu001.fileMenu -tearoff 0]
+.appMenu001.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData001 }
+.appMenu001.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile RoughPad.[dTStamp].rpad] .textData001 }
+.appMenu001 add separator
+.appMenu001 add cascade -label "Edit" -underline 0 -menu [menu .appMenu001.editMenu -tearoff 0]
+.appMenu001.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu001.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu001.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu001 add separator
+.appMenu001 add cascade -label "Insert" -underline 0 -menu [menu .appMenu001.insertMenu -tearoff 0]
+.appMenu001.insertMenu add cascade -label "Time Stamp" -underline 0 -menu [menu .appMenu001.insertMenu.dTStamp -tearoff 0]
+.appMenu001.insertMenu.dTStamp add command -label "At Top" -underline 3 -command { .textData001 insert 1.0 [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu001.insertMenu.dTStamp add command -label "Here" -underline 1 -command { .textData001 insert current [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu001.insertMenu.dTStamp add command -label "At Cursor" -underline 3 -command { .textData001 insert insert [clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu001.insertMenu.dTStamp add command -label "At Bottom" -underline 3 -command { .textData001 insert end \n[clock format [clock seconds] -format %Y\-%m\-%d\ %H\:%M\:%S]\n }
+.appMenu001.insertMenu add separator
+.appMenu001.insertMenu add cascade -label "Bar Marks" -underline 0 -menu [menu .appMenu001.insertMenu.bMMenu -tearoff 0]
+.appMenu001.insertMenu.bMMenu add cascade -label "Single Bar" -underline 0 -menu [menu .appMenu001.insertMenu.bMMenu.sBar -tearoff 0]
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Short Bar At Top" -underline 0 -command { insertCharsAtTop 32 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Medium Bar At Top" -underline 0 -command { insertCharsAtTop 48 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Long Bar At Top" -underline 0 -command { insertCharsAtTop 64 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add separator
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Short Bar Here" -underline 1 -command { insertCharsHere 32 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Medium Bar Here" -underline 1 -command { insertCharsHere 48 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Long Bar Here" -underline 1 -command { insertCharsHere 64 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add separator
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Short Bar at Cursor" -underline 3 -command { insertCharsAtCursor 32 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Medium Bar at Cursor" -underline 2 -command { insertCharsAtCursor 48 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Long Bar at Cursor" -underline 2 -command { insertCharsAtCursor 64 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add separator
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Short Bar at Bottom" -underline 4 -command { insertCharsAtBottom 32 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Medium Bar at Bottom" -underline 3 -command { insertCharsAtBottom 48 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu.sBar add command -label "Long Bar at Bottom" -underline 3 -command { insertCharsAtBottom 64 {-} .textData001 }
+.appMenu001.insertMenu.bMMenu add cascade -label "Double Bar" -underline 0 -menu [menu .appMenu001.insertMenu.bMMenu.dBar -tearoff 0]
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Short Bar At Top" -underline 0 -command { insertCharsAtTop 32 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Medium Bar At Top" -underline 0 -command { insertCharsAtTop 48 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Long Bar At Top" -underline 0 -command { insertCharsAtTop 64 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add separator
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Short Bar Here" -underline 1 -command { insertCharsHere 32 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Medium Bar Here" -underline 1 -command { insertCharsHere 48 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Long Bar Here" -underline 1 -command { insertCharsHere 64 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add separator
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Short Bar at Cursor" -underline 3 -command { insertCharsAtCursor 32 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Medium Bar at Cursor" -underline 2 -command { insertCharsAtCursor 48 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Long Bar at Cursor" -underline 2 -command { insertCharsAtCursor 64 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add separator
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Short Bar at Bottom" -underline 4 -command { insertCharsAtBottom 32 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Medium Bar at Bottom" -underline 3 -command { insertCharsAtBottom 48 {=} .textData001 }
+.appMenu001.insertMenu.bMMenu.dBar add command -label "Long Bar at Bottom" -underline 3 -command { insertCharsAtBottom 64 {=} .textData001 }
+.appMenu001.insertMenu add separator
+.appMenu001.insertMenu add cascade -label "Blank Lines" -underline 6 -menu [menu .appMenu001.insertMenu.bMenu -tearoff 0]
+.appMenu001.insertMenu.bMenu add cascade -label "8 Lines" -underline 0 -menu [menu .appMenu001.insertMenu.bMenu.8Lines -tearoff 0]
+.appMenu001.insertMenu.bMenu.8Lines add command -label "8 Lines at Top" -underline 11 -command { insertCharsAtTop 6 {} .textData001 }
+.appMenu001.insertMenu.bMenu.8Lines add command -label "8 Lines Here" -underline 8 -command { insertCharsHere 6 {} .textData001 }
+.appMenu001.insertMenu.bMenu.8Lines add command -label "8 Lines at Cursor" -underline 11 -command { insertCharsAtCursor 6 {} .textData001 }
+.appMenu001.insertMenu.bMenu.8Lines add command -label "8 Lines at Bottom" -underline 11 -command { insertCharsAtBottom 6 {} .textData001 }
+.appMenu001.insertMenu.bMenu add cascade -label "16 Lines" -underline 0 -menu [menu .appMenu001.insertMenu.bMenu.16Lines -tearoff 0]
+.appMenu001.insertMenu.bMenu.16Lines add command -label "16 Lines at Top" -underline 12 -command { insertCharsAtTop 14 {} .textData001 }
+.appMenu001.insertMenu.bMenu.16Lines add command -label "16 Lines Here" -underline 9 -command { insertCharsHere 14 {} .textData001 }
+.appMenu001.insertMenu.bMenu.16Lines add command -label "16 Lines at Cursor" -underline 12 -command { insertCharsAtCursor 14 {} .textData001 }
+.appMenu001.insertMenu.bMenu.16Lines add command -label "16 Lines at Bottom" -underline 12 -command { insertCharsAtBottom 14 {} .textData001 }
+.appMenu001.insertMenu.bMenu add cascade -label "24 Lines" -underline 0 -menu [menu .appMenu001.insertMenu.bMenu.24Lines -tearoff 0]
+.appMenu001.insertMenu.bMenu.24Lines add command -label "24 Lines at Top" -underline 12 -command { insertCharsAtTop 22 {} .textData001 }
+.appMenu001.insertMenu.bMenu.24Lines add command -label "24 Lines Here" -underline 9 -command { insertCharsHere 22 {} .textData001 }
+.appMenu001.insertMenu.bMenu.24Lines add command -label "24 Lines at Cursor" -underline 12 -command { insertCharsAtCursor 22 {} .textData001 }
+.appMenu001.insertMenu.bMenu.24Lines add command -label "24 Lines at Bottom" -underline 12 -command { insertCharsAtBottom 22 {} .textData001 }
+.appMenu001 add separator
+.appMenu001 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu001.prefMenu -tearoff 0]
+.appMenu001.prefMenu add checkbutton -label "Inverse Colours" -underline 0 -onvalue {on} -offvalue {off} -variable inverseState -command { inverseToggle .textData001 inverseState ; buttonCommitConfig }
+.appMenu001.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState001 -command { wrapToggle .textData001 wrapState001 ; buttonCommitConfig }
+.appMenu001.prefMenu add checkbutton -label "Show Tooltips" -underline 0 -onvalue {on} -offvalue {off} -variable toolTipState -command { ::tooltip::tooltip $toolTipState ; buttonCommitConfig }
+.appMenu001 add separator
+.appMenu001 add cascade -label "Help" -underline 0 -menu [menu .appMenu001.helpMenu -tearoff 0]
+.appMenu001.helpMenu add command -label "About" -underline 0 -command { programAbout }
+
+menu .appMenu002 -tearoff 0
+.appMenu002 add cascade -label "File" -underline 0 -menu [menu .appMenu002.fileMenu -tearoff 0]
+.appMenu002.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData002 }
+.appMenu002.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile ScrapPad.[dTStamp].rpad] .textData002 }
+.appMenu002 add separator
+.appMenu002 add cascade -label "Edit" -underline 0 -menu [menu .appMenu002.editMenu -tearoff 0]
+.appMenu002.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu002.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu002.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu002 add separator
+.appMenu002 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu002.prefMenu -tearoff 0]
+.appMenu002.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState002 -command { wrapToggle .textData002 wrapState002 ; buttonCommitConfig }
+
+menu .appMenu003 -tearoff 0
+.appMenu003 add cascade -label "File" -underline 0 -menu [menu .appMenu003.fileMenu -tearoff 0]
+.appMenu003.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData003 }
+.appMenu003.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JunkPad.[dTStamp].rpad] .textData003 }
+.appMenu003 add separator
+.appMenu003 add cascade -label "Edit" -underline 0 -menu [menu .appMenu003.editMenu -tearoff 0]
+.appMenu003.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu003.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu003.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu003 add separator
+.appMenu003 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu003.prefMenu -tearoff 0]
+.appMenu003.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState003 -command { wrapToggle .textData003 wrapState003 ; buttonCommitConfig }
+
+menu .appMenu004 -tearoff 0
+.appMenu004 add cascade -label "File" -underline 0 -menu [menu .appMenu004.fileMenu -tearoff 0]
+.appMenu004.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData004 }
+.appMenu004.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile AuxPad.[dTStamp].rpad] .textData004 }
+.appMenu004 add separator
+.appMenu004 add cascade -label "Edit" -underline 0 -menu [menu .appMenu004.editMenu -tearoff 0]
+.appMenu004.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu004.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu004.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu004 add separator
+.appMenu004 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu004.prefMenu -tearoff 0]
+.appMenu004.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState004 -command { wrapToggle .textData004 wrapState004 ; buttonCommitConfig }
+
+menu .appMenu005 -tearoff 0
+.appMenu005 add cascade -label "File" -underline 0 -menu [menu .appMenu005.fileMenu -tearoff 0]
+.appMenu005.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData005 }
+.appMenu005.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TempPad.[dTStamp].rpad] .textData005 }
+.appMenu005 add separator
+.appMenu005 add cascade -label "Edit" -underline 0 -menu [menu .appMenu005.editMenu -tearoff 0]
+.appMenu005.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu005.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu005.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu005 add separator
+.appMenu005 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu005.prefMenu -tearoff 0]
+.appMenu005.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState005 -command { wrapToggle .textData005 wrapState005 ; buttonCommitConfig }
+
+menu .appMenu006 -tearoff 0
+.appMenu006 add cascade -label "File" -underline 0 -menu [menu .appMenu006.fileMenu -tearoff 0]
+.appMenu006.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData006 }
+.appMenu006.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JotPad0.[dTStamp].rpad] .textData006 }
+.appMenu006 add separator
+.appMenu006 add cascade -label "Edit" -underline 0 -menu [menu .appMenu006.editMenu -tearoff 0]
+.appMenu006.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu006.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu006.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu006 add separator
+.appMenu006 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu006.prefMenu -tearoff 0]
+.appMenu006.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState006 -command { wrapToggle .textData006 wrapState006 ; buttonCommitConfig }
+
+menu .appMenu007 -tearoff 0
+.appMenu007 add cascade -label "File" -underline 0 -menu [menu .appMenu007.fileMenu -tearoff 0]
+.appMenu007.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData007 }
+.appMenu007.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JotPad1.[dTStamp].rpad] .textData007 }
+.appMenu007 add separator
+.appMenu007 add cascade -label "Edit" -underline 0 -menu [menu .appMenu007.editMenu -tearoff 0]
+.appMenu007.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu007.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu007.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu007 add separator
+.appMenu007 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu007.prefMenu -tearoff 0]
+.appMenu007.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState007 -command { wrapToggle .textData007 wrapState007 ; buttonCommitConfig }
+
+menu .appMenu008 -tearoff 0
+.appMenu008 add cascade -label "File" -underline 0 -menu [menu .appMenu008.fileMenu -tearoff 0]
+.appMenu008.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData008 }
+.appMenu008.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JotPad2.[dTStamp].rpad] .textData008 }
+.appMenu008 add separator
+.appMenu008 add cascade -label "Edit" -underline 0 -menu [menu .appMenu008.editMenu -tearoff 0]
+.appMenu008.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu008.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu008.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu008 add separator
+.appMenu008 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu008.prefMenu -tearoff 0]
+.appMenu008.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState008 -command { wrapToggle .textData008 wrapState008 ; buttonCommitConfig }
+
+menu .appMenu009 -tearoff 0
+.appMenu009 add cascade -label "File" -underline 0 -menu [menu .appMenu009.fileMenu -tearoff 0]
+.appMenu009.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData009 }
+.appMenu009.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JotPad3.[dTStamp].rpad] .textData009 }
+.appMenu009 add separator
+.appMenu009 add cascade -label "Edit" -underline 0 -menu [menu .appMenu009.editMenu -tearoff 0]
+.appMenu009.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu009.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu009.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu009 add separator
+.appMenu009 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu009.prefMenu -tearoff 0]
+.appMenu009.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState009 -command { wrapToggle .textData009 wrapState009 ; buttonCommitConfig }
+
+menu .appMenu010 -tearoff 0
+.appMenu010 add cascade -label "File" -underline 0 -menu [menu .appMenu010.fileMenu -tearoff 0]
+.appMenu010.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData010 }
+.appMenu010.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile JotPad4.[dTStamp].rpad] .textData010 }
+.appMenu010 add separator
+.appMenu010 add cascade -label "Edit" -underline 0 -menu [menu .appMenu010.editMenu -tearoff 0]
+.appMenu010.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu010.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu010.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu010 add separator
+.appMenu010 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu010.prefMenu -tearoff 0]
+.appMenu010.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState010 -command { wrapToggle .textData010 wrapState010 ; buttonCommitConfig }
+
+menu .appMenu011 -tearoff 0
+.appMenu011 add cascade -label "File" -underline 0 -menu [menu .appMenu011.fileMenu -tearoff 0]
+.appMenu011.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData011 }
+.appMenu011.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TextPad0.[dTStamp].rpad] .textData011 }
+.appMenu011 add separator
+.appMenu011 add cascade -label "Edit" -underline 0 -menu [menu .appMenu011.editMenu -tearoff 0]
+.appMenu011.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu011.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu011.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu011 add separator
+.appMenu011 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu011.prefMenu -tearoff 0]
+.appMenu011.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState011 -command { wrapToggle .textData011 wrapState011 ; buttonCommitConfig }
+
+menu .appMenu012 -tearoff 0
+.appMenu012 add cascade -label "File" -underline 0 -menu [menu .appMenu012.fileMenu -tearoff 0]
+.appMenu012.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData012 }
+.appMenu012.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TextPad1.[dTStamp].rpad] .textData012 }
+.appMenu012 add separator
+.appMenu012 add cascade -label "Edit" -underline 0 -menu [menu .appMenu012.editMenu -tearoff 0]
+.appMenu012.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu012.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu012.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu012 add separator
+.appMenu012 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu012.prefMenu -tearoff 0]
+.appMenu012.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState012 -command { wrapToggle .textData012 wrapState012 ; buttonCommitConfig }
+
+menu .appMenu013 -tearoff 0
+.appMenu013 add cascade -label "File" -underline 0 -menu [menu .appMenu013.fileMenu -tearoff 0]
+.appMenu013.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData013 }
+.appMenu013.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TextPad2.[dTStamp].rpad] .textData013 }
+.appMenu013 add separator
+.appMenu013 add cascade -label "Edit" -underline 0 -menu [menu .appMenu013.editMenu -tearoff 0]
+.appMenu013.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu013.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu013.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu013 add separator
+.appMenu013 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu013.prefMenu -tearoff 0]
+.appMenu013.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState013 -command { wrapToggle .textData013 wrapState013 ; buttonCommitConfig }
+
+menu .appMenu014 -tearoff 0
+.appMenu014 add cascade -label "File" -underline 0 -menu [menu .appMenu014.fileMenu -tearoff 0]
+.appMenu014.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData014 }
+.appMenu014.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TextPad3.[dTStamp].rpad] .textData014 }
+.appMenu014 add separator
+.appMenu014 add cascade -label "Edit" -underline 0 -menu [menu .appMenu014.editMenu -tearoff 0]
+.appMenu014.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu014.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu014.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu014 add separator
+.appMenu014 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu014.prefMenu -tearoff 0]
+.appMenu014.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState014 -command { wrapToggle .textData014 wrapState014 ; buttonCommitConfig }
+
+menu .appMenu015 -tearoff 0
+.appMenu015 add cascade -label "File" -underline 0 -menu [menu .appMenu015.fileMenu -tearoff 0]
+.appMenu015.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData015 }
+.appMenu015.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile TextPad4.[dTStamp].rpad] .textData015 }
+.appMenu015 add separator
+.appMenu015 add cascade -label "Edit" -underline 0 -menu [menu .appMenu015.editMenu -tearoff 0]
+.appMenu015.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu015.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu015.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu015 add separator
+.appMenu015 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu015.prefMenu -tearoff 0]
+.appMenu015.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState015 -command { wrapToggle .textData015 wrapState015 ; buttonCommitConfig }
+
+menu .appMenu016 -tearoff 0
+.appMenu016 add cascade -label "File" -underline 0 -menu [menu .appMenu016.fileMenu -tearoff 0]
+.appMenu016.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData016 }
+.appMenu016.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile WritePad0.[dTStamp].rpad] .textData016 }
+.appMenu016 add separator
+.appMenu016 add cascade -label "Edit" -underline 0 -menu [menu .appMenu016.editMenu -tearoff 0]
+.appMenu016.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu016.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu016.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu016 add separator
+.appMenu016 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu016.prefMenu -tearoff 0]
+.appMenu016.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState016 -command { wrapToggle .textData016 wrapState016 ; buttonCommitConfig }
+
+menu .appMenu017 -tearoff 0
+.appMenu017 add cascade -label "File" -underline 0 -menu [menu .appMenu017.fileMenu -tearoff 0]
+.appMenu017.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData017 }
+.appMenu017.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile WritePad1.[dTStamp].rpad] .textData017 }
+.appMenu017 add separator
+.appMenu017 add cascade -label "Edit" -underline 0 -menu [menu .appMenu017.editMenu -tearoff 0]
+.appMenu017.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu017.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu017.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu017 add separator
+.appMenu017 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu017.prefMenu -tearoff 0]
+.appMenu017.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState017 -command { wrapToggle .textData017 wrapState017 ; buttonCommitConfig }
+
+menu .appMenu018 -tearoff 0
+.appMenu018 add cascade -label "File" -underline 0 -menu [menu .appMenu018.fileMenu -tearoff 0]
+.appMenu018.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData018 }
+.appMenu018.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile WritePad2.[dTStamp].rpad] .textData018 }
+.appMenu018 add separator
+.appMenu018 add cascade -label "Edit" -underline 0 -menu [menu .appMenu018.editMenu -tearoff 0]
+.appMenu018.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu018.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu018.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu018 add separator
+.appMenu018 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu018.prefMenu -tearoff 0]
+.appMenu018.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState018 -command { wrapToggle .textData018 wrapState018 ; buttonCommitConfig }
+
+menu .appMenu019 -tearoff 0
+.appMenu019 add cascade -label "File" -underline 0 -menu [menu .appMenu019.fileMenu -tearoff 0]
+.appMenu019.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData019 }
+.appMenu019.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile WritePad3.[dTStamp].rpad] .textData019 }
+.appMenu019 add separator
+.appMenu019 add cascade -label "Edit" -underline 0 -menu [menu .appMenu019.editMenu -tearoff 0]
+.appMenu019.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu019.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu019.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu019 add separator
+.appMenu019 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu019.prefMenu -tearoff 0]
+.appMenu019.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState019 -command { wrapToggle .textData019 wrapState019 ; buttonCommitConfig }
+
+menu .appMenu020 -tearoff 0
+.appMenu020 add cascade -label "File" -underline 0 -menu [menu .appMenu020.fileMenu -tearoff 0]
+.appMenu020.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData020 }
+.appMenu020.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile WritePad4.[dTStamp].rpad] .textData020 }
+.appMenu020 add separator
+.appMenu020 add cascade -label "Edit" -underline 0 -menu [menu .appMenu020.editMenu -tearoff 0]
+.appMenu020.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu020.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu020.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu020 add separator
+.appMenu020 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu020.prefMenu -tearoff 0]
+.appMenu020.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState020 -command { wrapToggle .textData020 wrapState020 ; buttonCommitConfig }
+
+menu .appMenu021 -tearoff 0
+.appMenu021 add cascade -label "File" -underline 0 -menu [menu .appMenu021.fileMenu -tearoff 0]
+.appMenu021.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData021 }
+.appMenu021.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Project0.[dTStamp].rpad] .textData021 }
+.appMenu021 add separator
+.appMenu021 add cascade -label "Edit" -underline 0 -menu [menu .appMenu021.editMenu -tearoff 0]
+.appMenu021.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu021.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu021.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu021 add separator
+.appMenu021 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu021.prefMenu -tearoff 0]
+.appMenu021.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState021 -command { wrapToggle .textData021 wrapState021 ; buttonCommitConfig }
+
+menu .appMenu022 -tearoff 0
+.appMenu022 add cascade -label "File" -underline 0 -menu [menu .appMenu022.fileMenu -tearoff 0]
+.appMenu022.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData022 }
+.appMenu022.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Project1.[dTStamp].rpad] .textData022 }
+.appMenu022 add separator
+.appMenu022 add cascade -label "Edit" -underline 0 -menu [menu .appMenu022.editMenu -tearoff 0]
+.appMenu022.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu022.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu022.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu022 add separator
+.appMenu022 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu022.prefMenu -tearoff 0]
+.appMenu022.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState022 -command { wrapToggle .textData022 wrapState022 ; buttonCommitConfig }
+
+menu .appMenu023 -tearoff 0
+.appMenu023 add cascade -label "File" -underline 0 -menu [menu .appMenu023.fileMenu -tearoff 0]
+.appMenu023.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData023 }
+.appMenu023.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Project2.[dTStamp].rpad] .textData023 }
+.appMenu023 add separator
+.appMenu023 add cascade -label "Edit" -underline 0 -menu [menu .appMenu023.editMenu -tearoff 0]
+.appMenu023.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu023.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu023.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu023 add separator
+.appMenu023 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu023.prefMenu -tearoff 0]
+.appMenu023.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState023 -command { wrapToggle .textData023 wrapState023 ; buttonCommitConfig }
+
+menu .appMenu024 -tearoff 0
+.appMenu024 add cascade -label "File" -underline 0 -menu [menu .appMenu024.fileMenu -tearoff 0]
+.appMenu024.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData024 }
+.appMenu024.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Project3.[dTStamp].rpad] .textData024 }
+.appMenu024 add separator
+.appMenu024 add cascade -label "Edit" -underline 0 -menu [menu .appMenu024.editMenu -tearoff 0]
+.appMenu024.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu024.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu024.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu024 add separator
+.appMenu024 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu024.prefMenu -tearoff 0]
+.appMenu024.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState024 -command { wrapToggle .textData024 wrapState024 ; buttonCommitConfig }
+
+menu .appMenu025 -tearoff 0
+.appMenu025 add cascade -label "File" -underline 0 -menu [menu .appMenu025.fileMenu -tearoff 0]
+.appMenu025.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData025 }
+.appMenu025.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Project4.[dTStamp].rpad] .textData025 }
+.appMenu025 add separator
+.appMenu025 add cascade -label "Edit" -underline 0 -menu [menu .appMenu025.editMenu -tearoff 0]
+.appMenu025.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu025.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu025.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu025 add separator
+.appMenu025 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu025.prefMenu -tearoff 0]
+.appMenu025.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState025 -command { wrapToggle .textData025 wrapState025 ; buttonCommitConfig }
+
+menu .appMenu026 -tearoff 0
+.appMenu026 add cascade -label "File" -underline 0 -menu [menu .appMenu026.fileMenu -tearoff 0]
+.appMenu026.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData026 }
+.appMenu026.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Development0.[dTStamp].rpad] .textData026 }
+.appMenu026 add separator
+.appMenu026 add cascade -label "Edit" -underline 0 -menu [menu .appMenu026.editMenu -tearoff 0]
+.appMenu026.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu026.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu026.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu026 add separator
+.appMenu026 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu026.prefMenu -tearoff 0]
+.appMenu026.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState026 -command { wrapToggle .textData026 wrapState026 ; buttonCommitConfig }
+
+menu .appMenu027 -tearoff 0
+.appMenu027 add cascade -label "File" -underline 0 -menu [menu .appMenu027.fileMenu -tearoff 0]
+.appMenu027.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData027 }
+.appMenu027.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Development1.[dTStamp].rpad] .textData027 }
+.appMenu027 add separator
+.appMenu027 add cascade -label "Edit" -underline 0 -menu [menu .appMenu027.editMenu -tearoff 0]
+.appMenu027.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu027.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu027.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu027 add separator
+.appMenu027 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu027.prefMenu -tearoff 0]
+.appMenu027.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState027 -command { wrapToggle .textData027 wrapState027 ; buttonCommitConfig }
+
+menu .appMenu028 -tearoff 0
+.appMenu028 add cascade -label "File" -underline 0 -menu [menu .appMenu028.fileMenu -tearoff 0]
+.appMenu028.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData028 }
+.appMenu028.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Development2.[dTStamp].rpad] .textData028 }
+.appMenu028 add separator
+.appMenu028 add cascade -label "Edit" -underline 0 -menu [menu .appMenu028.editMenu -tearoff 0]
+.appMenu028.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu028.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu028.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu028 add separator
+.appMenu028 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu028.prefMenu -tearoff 0]
+.appMenu028.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState028 -command { wrapToggle .textData028 wrapState028 ; buttonCommitConfig }
+
+menu .appMenu029 -tearoff 0
+.appMenu029 add cascade -label "File" -underline 0 -menu [menu .appMenu029.fileMenu -tearoff 0]
+.appMenu029.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData029 }
+.appMenu029.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Development3.[dTStamp].rpad] .textData029 }
+.appMenu029 add separator
+.appMenu029 add cascade -label "Edit" -underline 0 -menu [menu .appMenu029.editMenu -tearoff 0]
+.appMenu029.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu029.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu029.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu029 add separator
+.appMenu029 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu029.prefMenu -tearoff 0]
+.appMenu029.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState029 -command { wrapToggle .textData029 wrapState029 ; buttonCommitConfig }
+
+menu .appMenu030 -tearoff 0
+.appMenu030 add cascade -label "File" -underline 0 -menu [menu .appMenu030.fileMenu -tearoff 0]
+.appMenu030.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData030 }
+.appMenu030.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Development4.[dTStamp].rpad] .textData030 }
+.appMenu030 add separator
+.appMenu030 add cascade -label "Edit" -underline 0 -menu [menu .appMenu030.editMenu -tearoff 0]
+.appMenu030.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu030.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu030.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>; if { $need2Save == {off} } { set need2Save {on}; .statusLabel configure -background $RSTLBL -text "You need to Save with <Alt><s> or Commit" } }
+.appMenu030 add separator
+.appMenu030 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu030.prefMenu -tearoff 0]
+.appMenu030.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState030 -command { wrapToggle .textData030 wrapState030 ; buttonCommitConfig }
+
+menu .appMenu210 -tearoff 0
+.appMenu210 add cascade -label "File" -underline 0 -menu [menu .appMenu210.fileMenu -tearoff 0]
+.appMenu210.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData210 }
+.appMenu210.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Expendable0.[dTStamp].rpad] .textData210 }
+.appMenu210 add separator
+.appMenu210 add cascade -label "Edit" -underline 0 -menu [menu .appMenu210.editMenu -tearoff 0]
+.appMenu210.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu210.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu210.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu210 add separator
+.appMenu210 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu210.prefMenu -tearoff 0]
+.appMenu210.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState210 -command { wrapToggle .textData210 wrapState210 ; buttonCommitConfig }
+
+menu .appMenu211 -tearoff 0
+.appMenu211 add cascade -label "File" -underline 0 -menu [menu .appMenu211.fileMenu -tearoff 0]
+.appMenu211.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData211 }
+.appMenu211.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Expendable1.[dTStamp].rpad] .textData211 }
+.appMenu211 add separator
+.appMenu211 add cascade -label "Edit" -underline 0 -menu [menu .appMenu211.editMenu -tearoff 0]
+.appMenu211.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu211.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu211.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu211 add separator
+.appMenu211 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu211.prefMenu -tearoff 0]
+.appMenu211.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState211 -command { wrapToggle .textData211 wrapState211 ; buttonCommitConfig }
+
+menu .appMenu212 -tearoff 0
+.appMenu212 add cascade -label "File" -underline 0 -menu [menu .appMenu212.fileMenu -tearoff 0]
+.appMenu212.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData212 }
+.appMenu212.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Expendable2.[dTStamp].rpad] .textData212 }
+.appMenu212 add separator
+.appMenu212 add cascade -label "Edit" -underline 0 -menu [menu .appMenu212.editMenu -tearoff 0]
+.appMenu212.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu212.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu212.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu212 add separator
+.appMenu212 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu212.prefMenu -tearoff 0]
+.appMenu212.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState212 -command { wrapToggle .textData212 wrapState212 ; buttonCommitConfig }
+
+menu .appMenu213 -tearoff 0
+.appMenu213 add cascade -label "File" -underline 0 -menu [menu .appMenu213.fileMenu -tearoff 0]
+.appMenu213.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData213 }
+.appMenu213.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Expendable3.[dTStamp].rpad] .textData213 }
+.appMenu213 add separator
+.appMenu213 add cascade -label "Edit" -underline 0 -menu [menu .appMenu213.editMenu -tearoff 0]
+.appMenu213.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu213.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu213.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu213 add separator
+.appMenu213 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu213.prefMenu -tearoff 0]
+.appMenu213.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState213 -command { wrapToggle .textData213 wrapState213 ; buttonCommitConfig }
+
+menu .appMenu214 -tearoff 0
+.appMenu214 add cascade -label "File" -underline 0 -menu [menu .appMenu214.fileMenu -tearoff 0]
+.appMenu214.fileMenu add command -label "Load" -underline 0 -command { loadFile [tk_getOpenFile -filetypes $fileTypes -initialdir $roughPadStore] .textData214 }
+.appMenu214.fileMenu add command -label "Save As" -underline 0 -command { saveAsFile [tk_getSaveFile -filetypes $fileTypes -initialdir $roughPadStore -initialfile Expendable4.[dTStamp].rpad] .textData214 }
+.appMenu214 add separator
+.appMenu214 add cascade -label "Edit" -underline 0 -menu [menu .appMenu214.editMenu -tearoff 0]
+.appMenu214.editMenu add command -label "Cut" -underline 0 -command {event generate [focus] <<Cut>>}
+.appMenu214.editMenu add command -label "Copy" -underline 3  -command {event generate [focus] <<Copy>>}
+.appMenu214.editMenu add command -label "Paste" -underline 0  -command {event generate [focus] <<Paste>>}
+.appMenu214 add separator
+.appMenu214 add cascade -label "Preferences" -underline 0 -menu [menu .appMenu214.prefMenu -tearoff 0]
+.appMenu214.prefMenu add checkbutton -label "Wrap Text" -underline 0 -onvalue {on} -offvalue {off} -variable wrapState214 -command { wrapToggle .textData214 wrapState214 ; buttonCommitConfig }
+
+grid rowconfigure . 0 -weight 1
+grid columnconfigure . 0 -weight 1
+
+grid rowconfigure . 1 -weight 0
+grid columnconfigure . 0 -weight 1
+
+grid rowconfigure . 2 -weight 0
+grid columnconfigure . 0 -weight 1
+
+grid rowconfigure .frmR 0 -weight 1
+grid rowconfigure .frmR 1 -weight 0
+
+grid columnconfigure .frmR 0 -weight 1
+grid columnconfigure .frmR 1 -weight 0
+
+grid rowconfigure .frmJ 0 -weight 1
+grid rowconfigure .frmJ 1 -weight 0
+
+grid columnconfigure .frmJ 0 -weight 1
+grid columnconfigure .frmJ 1 -weight 0
+
+grid rowconfigure .frmT 0 -weight 1
+grid rowconfigure .frmT 1 -weight 0
+
+grid columnconfigure .frmT 0 -weight 1
+grid columnconfigure .frmT 1 -weight 0
+
+grid rowconfigure .frmW 0 -weight 1
+grid rowconfigure .frmW 1 -weight 0
+
+grid columnconfigure .frmW 0 -weight 1
+grid columnconfigure .frmW 1 -weight 0
+
+grid rowconfigure .frmP 0 -weight 1
+grid rowconfigure .frmP 1 -weight 0
+
+grid columnconfigure .frmP 0 -weight 1
+grid columnconfigure .frmP 1 -weight 0
+
+grid rowconfigure .frmD 0 -weight 1
+grid rowconfigure .frmD 1 -weight 0
+
+grid columnconfigure .frmD 0 -weight 1
+grid columnconfigure .frmD 1 -weight 0
+
+grid rowconfigure .frmNS 0 -weight 0
+grid rowconfigure .frmNS 1 -weight 1
+
+grid columnconfigure .frmNS 0 -weight 1
+
+grid rowconfigure .frmQL 0 -weight 0
+grid rowconfigure .frmQL 1 -weight 1
+
+grid columnconfigure .frmQL 0 -weight 1
+
+grid rowconfigure .frmX 0 -weight 1
+grid rowconfigure .frmX 1 -weight 0
+
+grid columnconfigure .frmX 0 -weight 1
+grid columnconfigure .frmX 1 -weight 0
+
+grid rowconfigure .frmApp001 0 -weight 1
+grid rowconfigure .frmApp001 1 -weight 0
+
+grid rowconfigure .frmAppBottom 0 -weight 0
+
+grid columnconfigure .frmApp001 0 -weight 1
+grid columnconfigure .frmApp001 1 -weight 0
+
+grid columnconfigure .frmAppBottom 0 -weight 1
+grid columnconfigure .frmAppBottom 1 -weight 1
+grid columnconfigure .frmAppBottom 2 -weight 1
+grid columnconfigure .frmAppBottom 3 -weight 1
+grid columnconfigure .frmAppBottom 4 -weight 1
+grid columnconfigure .frmAppBottom 5 -weight 1
+
+grid rowconfigure .frmApp002 0 -weight 1
+grid rowconfigure .frmApp002 1 -weight 0
+
+grid columnconfigure .frmApp002 0 -weight 1
+grid columnconfigure .frmApp002 1 -weight 0
+
+grid rowconfigure .frmApp003 0 -weight 1
+grid rowconfigure .frmApp003 1 -weight 0
+
+grid columnconfigure .frmApp003 0 -weight 1
+grid columnconfigure .frmApp003 1 -weight 0
+
+grid rowconfigure .frmApp004 0 -weight 1
+grid rowconfigure .frmApp004 1 -weight 0
+
+grid columnconfigure .frmApp004 0 -weight 1
+grid columnconfigure .frmApp004 1 -weight 0
+
+grid rowconfigure .frmApp005 0 -weight 1
+grid rowconfigure .frmApp005 1 -weight 0
+
+grid columnconfigure .frmApp005 0 -weight 1
+grid columnconfigure .frmApp005 1 -weight 0
+
+grid rowconfigure .frmApp006 0 -weight 1
+grid rowconfigure .frmApp006 1 -weight 0
+
+grid columnconfigure .frmApp006 0 -weight 1
+grid columnconfigure .frmApp006 1 -weight 0
+
+grid rowconfigure .frmApp007 0 -weight 1
+grid rowconfigure .frmApp007 1 -weight 0
+
+grid columnconfigure .frmApp007 0 -weight 1
+grid columnconfigure .frmApp007 1 -weight 0
+
+grid rowconfigure .frmApp008 0 -weight 1
+grid rowconfigure .frmApp008 1 -weight 0
+
+grid columnconfigure .frmApp008 0 -weight 1
+grid columnconfigure .frmApp008 1 -weight 0
+
+grid rowconfigure .frmApp009 0 -weight 1
+grid rowconfigure .frmApp009 1 -weight 0
+
+grid columnconfigure .frmApp009 0 -weight 1
+grid columnconfigure .frmApp009 1 -weight 0
+
+grid rowconfigure .frmApp010 0 -weight 1
+grid rowconfigure .frmApp010 1 -weight 0
+
+grid columnconfigure .frmApp010 0 -weight 1
+grid columnconfigure .frmApp010 1 -weight 0
+
+grid rowconfigure .frmApp011 0 -weight 1
+grid rowconfigure .frmApp011 1 -weight 0
+
+grid columnconfigure .frmApp011 0 -weight 1
+grid columnconfigure .frmApp011 1 -weight 0
+
+grid rowconfigure .frmApp012 0 -weight 1
+grid rowconfigure .frmApp012 1 -weight 0
+
+grid columnconfigure .frmApp012 0 -weight 1
+grid columnconfigure .frmApp012 1 -weight 0
+
+grid rowconfigure .frmApp013 0 -weight 1
+grid rowconfigure .frmApp013 1 -weight 0
+
+grid columnconfigure .frmApp013 0 -weight 1
+grid columnconfigure .frmApp013 1 -weight 0
+
+grid rowconfigure .frmApp014 0 -weight 1
+grid rowconfigure .frmApp014 1 -weight 0
+
+grid columnconfigure .frmApp014 0 -weight 1
+grid columnconfigure .frmApp014 1 -weight 0
+
+grid rowconfigure .frmApp015 0 -weight 1
+grid rowconfigure .frmApp015 1 -weight 0
+
+grid columnconfigure .frmApp015 0 -weight 1
+grid columnconfigure .frmApp015 1 -weight 0
+
+grid rowconfigure .frmApp016 0 -weight 1
+grid rowconfigure .frmApp016 1 -weight 0
+
+grid columnconfigure .frmApp016 0 -weight 1
+grid columnconfigure .frmApp016 1 -weight 0
+
+grid rowconfigure .frmApp017 0 -weight 1
+grid rowconfigure .frmApp017 1 -weight 0
+
+grid columnconfigure .frmApp017 0 -weight 1
+grid columnconfigure .frmApp017 1 -weight 0
+
+grid rowconfigure .frmApp018 0 -weight 1
+grid rowconfigure .frmApp018 1 -weight 0
+
+grid columnconfigure .frmApp018 0 -weight 1
+grid columnconfigure .frmApp018 1 -weight 0
+
+grid rowconfigure .frmApp019 0 -weight 1
+grid rowconfigure .frmApp019 1 -weight 0
+
+grid columnconfigure .frmApp019 0 -weight 1
+grid columnconfigure .frmApp019 1 -weight 0
+
+grid rowconfigure .frmApp020 0 -weight 1
+grid rowconfigure .frmApp020 1 -weight 0
+
+grid columnconfigure .frmApp020 0 -weight 1
+grid columnconfigure .frmApp020 1 -weight 0
+
+grid rowconfigure .frmApp021 0 -weight 1
+grid rowconfigure .frmApp021 1 -weight 0
+
+grid columnconfigure .frmApp021 0 -weight 1
+grid columnconfigure .frmApp021 1 -weight 0
+
+grid rowconfigure .frmApp022 0 -weight 1
+grid rowconfigure .frmApp022 1 -weight 0
+
+grid columnconfigure .frmApp022 0 -weight 1
+grid columnconfigure .frmApp022 1 -weight 0
+
+grid rowconfigure .frmApp023 0 -weight 1
+grid rowconfigure .frmApp023 1 -weight 0
+
+grid columnconfigure .frmApp023 0 -weight 1
+grid columnconfigure .frmApp023 1 -weight 0
+
+grid rowconfigure .frmApp024 0 -weight 1
+grid rowconfigure .frmApp024 1 -weight 0
+
+grid columnconfigure .frmApp024 0 -weight 1
+grid columnconfigure .frmApp024 1 -weight 0
+
+grid rowconfigure .frmApp025 0 -weight 1
+grid rowconfigure .frmApp025 1 -weight 0
+
+grid columnconfigure .frmApp025 0 -weight 1
+grid columnconfigure .frmApp025 1 -weight 0
+
+grid rowconfigure .frmApp026 0 -weight 1
+grid rowconfigure .frmApp026 1 -weight 0
+
+grid columnconfigure .frmApp026 0 -weight 1
+grid columnconfigure .frmApp026 1 -weight 0
+
+grid rowconfigure .frmApp027 0 -weight 1
+grid rowconfigure .frmApp027 1 -weight 0
+
+grid columnconfigure .frmApp027 0 -weight 1
+grid columnconfigure .frmApp027 1 -weight 0
+
+grid rowconfigure .frmApp028 0 -weight 1
+grid rowconfigure .frmApp028 1 -weight 0
+
+grid columnconfigure .frmApp028 0 -weight 1
+grid columnconfigure .frmApp028 1 -weight 0
+
+grid rowconfigure .frmApp029 0 -weight 1
+grid rowconfigure .frmApp029 1 -weight 0
+
+grid columnconfigure .frmApp029 0 -weight 1
+grid columnconfigure .frmApp029 1 -weight 0
+
+grid rowconfigure .frmApp030 0 -weight 1
+grid rowconfigure .frmApp030 1 -weight 0
+
+grid columnconfigure .frmApp030 0 -weight 1
+grid columnconfigure .frmApp030 1 -weight 0
+
+grid rowconfigure .frmApp210 0 -weight 1
+grid rowconfigure .frmApp210 1 -weight 0
+
+grid columnconfigure .frmApp210 0 -weight 1
+grid columnconfigure .frmApp210 1 -weight 0
+
+grid rowconfigure .frmApp211 0 -weight 1
+grid rowconfigure .frmApp211 1 -weight 0
+
+grid columnconfigure .frmApp211 0 -weight 1
+grid columnconfigure .frmApp211 1 -weight 0
+
+grid rowconfigure .frmApp212 0 -weight 1
+grid rowconfigure .frmApp212 1 -weight 0
+
+grid columnconfigure .frmApp212 0 -weight 1
+grid columnconfigure .frmApp212 1 -weight 0
+
+grid rowconfigure .frmApp213 0 -weight 1
+grid rowconfigure .frmApp213 1 -weight 0
+
+grid columnconfigure .frmApp213 0 -weight 1
+grid columnconfigure .frmApp213 1 -weight 0
+
+grid rowconfigure .frmApp214 0 -weight 1
+grid rowconfigure .frmApp214 1 -weight 0
+
+grid columnconfigure .frmApp214 0 -weight 1
+grid columnconfigure .frmApp214 1 -weight 0
+
+grid .categoryBook -in . -row 0 -column 0 -sticky news
+
+grid .tabBookRough -in .frmR -row 0 -column 0 -sticky news
+grid .tabBookJot -in .frmJ -row 0 -column 0 -sticky news
+grid .tabBookText -in .frmT -row 0 -column 0 -sticky news
+grid .tabBookWrite -in .frmW -row 0 -column 0 -sticky news
+grid .tabBookProjects -in .frmP -row 0 -column 0 -sticky news
+grid .tabBookDevelopment -in .frmD -row 0 -column 0 -sticky news
+grid .tabBookExpendables -in .frmX -row 0 -column 0 -sticky news
+
+grid .frmAppBottom -in . -row 1 -column 0 -columnspan 6 -sticky news
+
+grid .statusLabel -in . -row 2 -column 0 -columnspan 6 -sticky news
+
+grid .textData001 -in .frmApp001 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar001 -in .frmApp001 -row 0 -column 1 -sticky news
+grid .hScrollBar001 -in .frmApp001 -row 1 -column 0 -sticky news
+
+grid .textData002 -in .frmApp002 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar002 -in .frmApp002 -row 0 -column 1 -sticky news
+grid .hScrollBar002 -in .frmApp002 -row 1 -column 0 -sticky news
+
+grid .textData003 -in .frmApp003 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar003 -in .frmApp003 -row 0 -column 1 -sticky news
+grid .hScrollBar003 -in .frmApp003 -row 1 -column 0 -sticky news
+
+grid .textData004 -in .frmApp004 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar004 -in .frmApp004 -row 0 -column 1 -sticky news
+grid .hScrollBar004 -in .frmApp004 -row 1 -column 0 -sticky news
+
+grid .textData005 -in .frmApp005 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar005 -in .frmApp005 -row 0 -column 1 -sticky news
+grid .hScrollBar005 -in .frmApp005 -row 1 -column 0 -sticky news
+
+grid .textData006 -in .frmApp006 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar006 -in .frmApp006 -row 0 -column 1 -sticky news
+grid .hScrollBar006 -in .frmApp006 -row 1 -column 0 -sticky news
+
+grid .textData007 -in .frmApp007 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar007 -in .frmApp007 -row 0 -column 1 -sticky news
+grid .hScrollBar007 -in .frmApp007 -row 1 -column 0 -sticky news
+
+grid .textData008 -in .frmApp008 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar008 -in .frmApp008 -row 0 -column 1 -sticky news
+grid .hScrollBar008 -in .frmApp008 -row 1 -column 0 -sticky news
+
+grid .textData009 -in .frmApp009 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar009 -in .frmApp009 -row 0 -column 1 -sticky news
+grid .hScrollBar009 -in .frmApp009 -row 1 -column 0 -sticky news
+
+grid .textData010 -in .frmApp010 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar010 -in .frmApp010 -row 0 -column 1 -sticky news
+grid .hScrollBar010 -in .frmApp010 -row 1 -column 0 -sticky news
+
+grid .textData011 -in .frmApp011 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar011 -in .frmApp011 -row 0 -column 1 -sticky news
+grid .hScrollBar011 -in .frmApp011 -row 1 -column 0 -sticky news
+
+grid .textData012 -in .frmApp012 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar012 -in .frmApp012 -row 0 -column 1 -sticky news
+grid .hScrollBar012 -in .frmApp012 -row 1 -column 0 -sticky news
+
+grid .textData013 -in .frmApp013 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar013 -in .frmApp013 -row 0 -column 1 -sticky news
+grid .hScrollBar013 -in .frmApp013 -row 1 -column 0 -sticky news
+
+grid .textData014 -in .frmApp014 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar014 -in .frmApp014 -row 0 -column 1 -sticky news
+grid .hScrollBar014 -in .frmApp014 -row 1 -column 0 -sticky news
+
+grid .textData015 -in .frmApp015 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar015 -in .frmApp015 -row 0 -column 1 -sticky news
+grid .hScrollBar015 -in .frmApp015 -row 1 -column 0 -sticky news
+
+grid .textData016 -in .frmApp016 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar016 -in .frmApp016 -row 0 -column 1 -sticky news
+grid .hScrollBar016 -in .frmApp016 -row 1 -column 0 -sticky news
+
+grid .textData017 -in .frmApp017 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar017 -in .frmApp017 -row 0 -column 1 -sticky news
+grid .hScrollBar017 -in .frmApp017 -row 1 -column 0 -sticky news
+
+grid .textData018 -in .frmApp018 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar018 -in .frmApp018 -row 0 -column 1 -sticky news
+grid .hScrollBar018 -in .frmApp018 -row 1 -column 0 -sticky news
+
+grid .textData019 -in .frmApp019 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar019 -in .frmApp019 -row 0 -column 1 -sticky news
+grid .hScrollBar019 -in .frmApp019 -row 1 -column 0 -sticky news
+
+grid .textData020 -in .frmApp020 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar020 -in .frmApp020 -row 0 -column 1 -sticky news
+grid .hScrollBar020 -in .frmApp020 -row 1 -column 0 -sticky news
+
+grid .textData021 -in .frmApp021 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar021 -in .frmApp021 -row 0 -column 1 -sticky news
+grid .hScrollBar021 -in .frmApp021 -row 1 -column 0 -sticky news
+
+grid .textData022 -in .frmApp022 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar022 -in .frmApp022 -row 0 -column 1 -sticky news
+grid .hScrollBar022 -in .frmApp022 -row 1 -column 0 -sticky news
+
+grid .textData023 -in .frmApp023 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar023 -in .frmApp023 -row 0 -column 1 -sticky news
+grid .hScrollBar023 -in .frmApp023 -row 1 -column 0 -sticky news
+
+grid .textData024 -in .frmApp024 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar024 -in .frmApp024 -row 0 -column 1 -sticky news
+grid .hScrollBar024 -in .frmApp024 -row 1 -column 0 -sticky news
+
+grid .textData025 -in .frmApp025 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar025 -in .frmApp025 -row 0 -column 1 -sticky news
+grid .hScrollBar025 -in .frmApp025 -row 1 -column 0 -sticky news
+
+grid .textData026 -in .frmApp026 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar026 -in .frmApp026 -row 0 -column 1 -sticky news
+grid .hScrollBar026 -in .frmApp026 -row 1 -column 0 -sticky news
+
+grid .textData027 -in .frmApp027 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar027 -in .frmApp027 -row 0 -column 1 -sticky news
+grid .hScrollBar027 -in .frmApp027 -row 1 -column 0 -sticky news
+
+grid .textData028 -in .frmApp028 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar028 -in .frmApp028 -row 0 -column 1 -sticky news
+grid .hScrollBar028 -in .frmApp028 -row 1 -column 0 -sticky news
+
+grid .textData029 -in .frmApp029 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar029 -in .frmApp029 -row 0 -column 1 -sticky news
+grid .hScrollBar029 -in .frmApp029 -row 1 -column 0 -sticky news
+
+grid .textData030 -in .frmApp030 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar030 -in .frmApp030 -row 0 -column 1 -sticky news
+grid .hScrollBar030 -in .frmApp030 -row 1 -column 0 -sticky news
+
+grid .searchEntry -in .frmNS -row 0 -column 0 -columnspan 7 -sticky news
+grid .butNoteSearch -in .frmNS -row 0 -column 6 -columnspan 1 -sticky news
+grid .butNSClear -in .frmNS -row 0 -column 7 -columnspan 1 -sticky news
+grid .searchResults -in .frmNS -row 1 -column 0 -columnspan 8 -stick news
+grid .vScrollBar201 -in .frmNS -row 0 -column 8 -rowspan 2 -sticky nes
+grid .hScrollBar201 -in .frmNS -row 2 -column 0 -columnspan 8 -sticky ew
+
+grid .foundFileLoadEntry -in .frmQL -row 0 -column 0 -columnspan 7 -sticky news
+grid .butFileLoad -in .frmQL -row 0 -column 6 -columnspan 1 -sticky news
+grid .butFLClear -in .frmQL -row 0 -column 7 -columnspan 1 -sticky news
+grid .fileContents -in .frmQL -row 1 -column 0 -columnspan 8 -stick news
+grid .vScrollBar202 -in .frmQL -row 0 -column 8 -rowspan 2 -sticky nes
+grid .hScrollBar202 -in .frmQL -row 2 -column 0 -columnspan 8 -sticky ew
+
+grid .textData210 -in .frmApp210 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar210 -in .frmApp210 -row 0 -column 1 -sticky news
+grid .hScrollBar210 -in .frmApp210 -row 1 -column 0 -sticky news
+
+grid .textData211 -in .frmApp211 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar211 -in .frmApp211 -row 0 -column 1 -sticky news
+grid .hScrollBar211 -in .frmApp211 -row 1 -column 0 -sticky news
+
+grid .textData212 -in .frmApp212 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar212 -in .frmApp212 -row 0 -column 1 -sticky news
+grid .hScrollBar212 -in .frmApp212 -row 1 -column 0 -sticky news
+
+grid .textData213 -in .frmApp213 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar213 -in .frmApp213 -row 0 -column 1 -sticky news
+grid .hScrollBar213 -in .frmApp213 -row 1 -column 0 -sticky news
+
+grid .textData214 -in .frmApp214 -row 0 -column 0 -columnspan 1 -sticky news
+grid .vScrollBar214 -in .frmApp214 -row 0 -column 1 -sticky news
+grid .hScrollBar214 -in .frmApp214 -row 1 -column 0 -sticky news
+
+set colCounter 0
+#grid .butClear -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+grid .butCommit -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+#grid .butMinimize -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+grid .butBackup -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+grid .butCBackup -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+grid .butAbout -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0; incr colCounter
+grid .butExit -in .frmAppBottom -row 0 -column $colCounter -sticky news -padx 0 -pady 0 -ipadx 0
+
+::tooltip::tooltip delay 512
+::tooltip::tooltip fade true
+::tooltip::tooltip $toolTipState
+
+set WARNING "Use this area to manipulate miscelaneous text.\n\n\tW A R N I N G :\n\n* Never use this area to keep important notes indefinitely,\n  as they could and will eventually be overwritten.\n\n* To save your notes to a regular text file of your choice,\n  use the \"Save As\" option from the \"File\" context menu.\n\n* Before you load a text file from the \"File\" context menu,\n  ensure you have saved your current notes to a text file\n  using the \"Save As\" option from the \"File\" context menu\n  as your notes will be overwritten by the file's contents."
+
+set WARNING2 "W A R N I N G :\n\n* Nothing in this area (ScrapPad) is saved automatically. *\n\nUse the File popup menu to load / save from here."
+
+tooltip::tooltip .textData001 $WARNING
+tooltip::tooltip .textData002 $WARNING
+tooltip::tooltip .textData003 $WARNING
+tooltip::tooltip .textData004 $WARNING
+tooltip::tooltip .textData005 $WARNING
+
+tooltip::tooltip .butClear "Clear all text in the RoughPad."
+tooltip::tooltip .butCommit "Commit all the text in all pads now! (Text is auto-committed on exit, too)"
+tooltip::tooltip .butBackup "Backup the pad files (Commit is NOT performed before backup)"
+tooltip::tooltip .butCBackup "Commit on all pads and then backup the pad files"
+tooltip::tooltip .butExit "Commit the RoughPad text and exit."
+
+wm protocol . WM_DELETE_WINDOW { buttonCommitData; buttonExit }
+wm title .  "$programName v$programVersion"
+wm minsize . 864 480
+wm geometry . 900x600
+
+set appIcon [ image create photo -file $env(HOME)/.local/share/icons/$programName.png ]
+wm iconphoto . -default $appIcon
+
+inverseToggle .textData001 inverseState
+wrapToggle .textData001 wrapState001
+wrapToggle .textData002 wrapState002
+wrapToggle .textData003 wrapState003
+wrapToggle .textData004 wrapState004
+wrapToggle .textData005 wrapState005
+wrapToggle .textData006 wrapState006
+wrapToggle .textData007 wrapState007
+wrapToggle .textData008 wrapState008
+wrapToggle .textData009 wrapState009
+wrapToggle .textData010 wrapState010
+wrapToggle .textData011 wrapState011
+wrapToggle .textData012 wrapState012
+wrapToggle .textData013 wrapState013
+wrapToggle .textData014 wrapState014
+wrapToggle .textData015 wrapState015
+wrapToggle .textData016 wrapState016
+wrapToggle .textData017 wrapState017
+wrapToggle .textData018 wrapState018
+wrapToggle .textData019 wrapState019
+wrapToggle .textData020 wrapState020
+wrapToggle .textData021 wrapState021
+wrapToggle .textData022 wrapState022
+wrapToggle .textData023 wrapState023
+wrapToggle .textData024 wrapState024
+wrapToggle .textData025 wrapState025
+wrapToggle .textData026 wrapState026
+wrapToggle .textData027 wrapState027
+wrapToggle .textData028 wrapState028
+wrapToggle .textData029 wrapState029
+wrapToggle .textData030 wrapState030
+wrapToggle .textData210 wrapState210
+wrapToggle .textData211 wrapState211
+wrapToggle .textData212 wrapState212
+wrapToggle .textData213 wrapState213
+wrapToggle .textData214 wrapState214
+
+buttonCommitConfig
+
+if { [ lindex $argv 0 ]  == "-m" } { wm withdraw . ; wm iconify . }
+
+if { ! [ catch { package present Tclx } v ] } {
+  signal trap [ list SIGQUIT SIGABRT SIGTERM SIGINT ] { buttonCommitData; buttonExit }
+  signal trap [ list SIGHUP SIGUSR1 SIGUSR2 ] buttonCommitData
+}
+
+if { ! [ catch { package present Signal } v ] } {
+  signal add SIGQUIT { buttonCommitData; buttonExit }
+  signal add SIGABRT { buttonCommitData; buttonExit }
+  signal add SIGTERM { buttonCommitData; buttonExit }
+  signal add SIGINT { buttonCommitData; buttonExit }
+  signal add SIGHUP buttonCommitData
+  signal add SIGUSR1 buttonCommitData
+  signal add SIGUSR2 buttonCommitData
+}
+
