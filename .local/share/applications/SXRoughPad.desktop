@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=SXRoughPad
+Name[el]=SXRoughPad
+GenericName=SXRoughPad
+GenericName[el]=SXRoughPad
+Comment=General Purpose Notes
+Comment[el]=Πρόχειρες Σημειώσεις
+Type=Application
+TryExec=SXRoughPad
+Exec=SXRoughPad
+Icon=SXRoughPad
+Categories=Development;Utility;
